@@ -7,8 +7,15 @@ message(STATUS "Adding comm-study...")
 add_subdirectory(comm-study)
 
 #----------------------------------------------------------------------------------------#
-#   Add MPI partial communication demo
+#   Add heat equation demo
 #----------------------------------------------------------------------------------------#
 
 message(STATUS "Adding heat-equation...")
 add_subdirectory(heat-equation)
+
+#----------------------------------------------------------------------------------------#
+#   Add MDSPAN + nvstdpar demo
+#----------------------------------------------------------------------------------------#
+
+message(STATUS "Adding mdspan-stdpar...")
+add_subdirectory(mdspan-stdpar)
