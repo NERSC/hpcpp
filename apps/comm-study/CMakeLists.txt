@@ -3,7 +3,7 @@ project(comm-study LANGUAGES CXX)
 add_executable(comm-study ${_EXCLUDE}
     ${CMAKE_CURRENT_LIST_DIR}/comm-study.cpp)
 
-set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/apitest.cu PROPERTIES LANGUAGE CXX LINKER_LANGUAGE CXX)
+set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/comm-study.cpp PROPERTIES LANGUAGE CXX LINKER_LANGUAGE CXX)
 
 # add dependencies (not applicable yet)
 # add_dependencies(comm-study magic_enum argparse)
