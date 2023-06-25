@@ -6,6 +6,7 @@
 #include <math.h>
 #include <numeric>
 
+
 using namespace std;
 using namespace stdexec;
 using stdexec::sync_wait;
