@@ -8,14 +8,7 @@
 // The purpose is to be able to control the amount of work performed. The
 // example is still fully serial, no parallelization is performed.
 
-#include <cassert>
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <iostream>
-#include <vector>
-
-#include "common.hpp"
+#include "commons.hpp"
 #include <boost/program_options.hpp>
 
 ///////////////////////////////////////////////////////////////////////////////
