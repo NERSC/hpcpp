@@ -1,18 +1,8 @@
-//  Copyright (c) 2023 Weile Wei 
-// 
-// This example provides a stdpar implementation for the 1D stencil code. 
+//  Copyright (c) 2023 Weile Wei
+//
+// This example provides a stdpar implementation for the 1D stencil code.
 
-#include <cassert>
-#include <chrono>
-#include <cstddef>
-#include <cstdint>
-#include <iostream>
-#include <vector>
-
-#include <algorithm>
-#include <execution>
-
-#include "common.hpp"
+#include "commons.hpp"
 #include <boost/program_options.hpp>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -56,11 +46,11 @@ struct stepper
 
             next[0] = heat(current[nx - 1], current[0], current[1]);
 
-            auto currentPtr = current.data(); 
-            auto nextPtr = next.data(); 
+            auto currentPtr = current.data();
+            auto nextPtr = next.data();
 
             // TODO: nvc++ for_eaach_n lambda cannot capture static/global variable
-            std::for_each_n(std::execution::par_unseq, counting_iterator(1), nx-1, 
+            std::for_each_n(std::execution::par_unseq, counting_iterator(1), nx-1,
                 [=, k=k, dt=dt, dx=dx](int32_t i) {
                 nextPtr[i] = heat(currentPtr[i - 1], currentPtr[i], currentPtr[i + 1], k, dt, dx);
             });
@@ -93,7 +83,7 @@ int bencharmark(boost::program_options::variables_map& vm) {
     stepper::space solution = step.do_work(nx, nt);
 
     // Print the final solution
-    // TODO: make it default false 
+    // TODO: make it default false
     if (!vm.count("results"))
     {
         for (std::size_t i = 0; i != nx; ++i)
@@ -107,7 +97,7 @@ int bencharmark(boost::program_options::variables_map& vm) {
     // TODO: print time results
     // print_time_results(os_thread_count, elapsed, nx, nt, header);
 
-    return 0; 
+    return 0;
 }
 
 int main(int argc, char* argv[])

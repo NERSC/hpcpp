@@ -8,9 +8,9 @@ add_executable(1d_stencil_stdpar ${_EXCLUDE}
 
 set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/1d_stencil_stdpar.cpp PROPERTIES LANGUAGE CXX LINKER_LANGUAGE CXX)
 
-target_include_directories(1d_stencil_stdpar PRIVATE ${CMAKE_BINARY_DIR} ${ARGPARSE_INCLUDE_DIR})
+target_include_directories(1d_stencil_stdpar PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
 
-target_link_libraries(1d_stencil_stdpar PUBLIC ${MPI_LIBS} ${Boost_LIBRARIES}) 
+target_link_libraries(1d_stencil_stdpar PUBLIC ${MPI_LIBS} ${Boost_LIBRARIES})
 
 set_target_properties(1d_stencil_stdpar
     PROPERTIES

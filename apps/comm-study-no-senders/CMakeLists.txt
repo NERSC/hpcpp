@@ -10,7 +10,7 @@ set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/comm-study-no-senders.cpp 
 
 # include core/include and generated files
 # DO NOT include ${MAGICENUM_INCLUDE_DIR} as it results in an internal error at templates due to CUDA compiler.
-target_include_directories(comm-study-no-senders PRIVATE ${CMAKE_BINARY_DIR} ${ARGPARSE_INCLUDE_DIR})
+target_include_directories(comm-study-no-senders PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
 
 target_link_libraries(comm-study-no-senders PUBLIC ${MPI_LIBS})
 

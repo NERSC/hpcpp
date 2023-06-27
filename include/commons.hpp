@@ -24,9 +24,29 @@
  * SOFTWARE.
  */
 
-#include "commons.hpp"
+#pragma once
 
-int main(int argc, char *argv[])
-{
-    return 0;
-}
+#include <math.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <vector>
+#include <memory>
+#include <iterator>
+#include <typeinfo>
+#include <type_traits>
+#include <algorithm>
+#include <iostream>
+#include <execution>
+#include <chrono>
+#include <numeric>
+#include <span>
+#include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include "counting_iterator.hpp"
+
+
+// get mdpsan 2d indices from 1d index
+#define dim2(x, ms)       int ii = x/ms.extent(1); int ij = x%ms.extent(1);
+// get mdspan 3d indices from 1d index
+#define dim3(x, ms)       int ii = x/(ms3.extent(1)*ms.extent(2)); int ij = (x/ms.extent(2))%ms.extent(1); int ik = x%ms.extent(2)

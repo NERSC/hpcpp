@@ -151,5 +151,11 @@ checkout_git_submodule(
 message(STATUS "Adding externals/mdspan...")
 add_subdirectory(mdspan)
 
+message(STATUS "Adding externals/argparse...")
+add_subdirectory(argparse)
+
 set(MDSPAN_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/mdspan/include
     CACHE PATH "mdspan include directory")
+
+set(ARGPARSE_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/argparse/include
+    CACHE PATH "argparse include directory")
