@@ -36,7 +36,7 @@ using extents_type2 = std::extents<int, 2, std::dynamic_extent, std::dynamic_ext
 int main()
 {
     constexpr int N = 1e9;
-    std::vector<int> v(N);
+    std::vector<data_type> v(N);
 
     // View data as contiguous memory representing 2 rows of 6 ints each
     auto ms2 = std::mdspan<data_type, extents_type, std::layout_right> (v.data(), N/2, 2);
