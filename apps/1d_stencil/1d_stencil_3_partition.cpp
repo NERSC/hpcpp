@@ -9,7 +9,21 @@
 // example is still fully serial, no parallelization is performed.
 
 #include "commons.hpp"
-#include <boost/program_options.hpp>
+#include "argparse/argparse.hpp"
+
+// parameters
+struct args_params_t : public argparse::Args
+{
+    bool &results = kwarg("results", "print generated results (default: false)").set_default(false);
+    std::uint64_t &nx = kwarg("nx", "Local x dimension (of each partition)").set_default(10);
+    std::uint64_t &nt = kwarg("nt", "Number of time steps").set_default(45);
+    std::uint64_t &np = kwarg("np", "Number of partitions").set_default(10);
+    bool &k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
+    double &dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
+    double &dx = kwarg("dx", "Local x dimension").set_default(1.0);
+    bool &no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false); 
+    bool &help = kwarg("h, help", "print help").set_default(false);
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
@@ -139,15 +153,11 @@ struct stepper
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-int benchmark(boost::program_options::variables_map& vm)
+int benchmark(args_params_t const & args)
 {
-    std::uint64_t np = vm["np"].as<std::uint64_t>();    // Number of partitions.
-    std::uint64_t nx =
-        vm["nx"].as<std::uint64_t>();    // Number of grid points.
-    std::uint64_t nt = vm["nt"].as<std::uint64_t>();    // Number of steps.
-
-    if (vm.count("no-header"))
-        header = false;
+    std::uint64_t np = args.np;    // Number of partitions.
+    std::uint64_t nx = args.nx;    // Number of grid points.
+    std::uint64_t nt = args.nt;    // Number of steps.
 
     // Create the stepper object
     stepper step;
@@ -161,9 +171,9 @@ int benchmark(boost::program_options::variables_map& vm)
     auto elapsed = std::chrono::high_resolution_clock::now() - t;
 
     // Print the final solution
-    if (!vm.count("results"))
+    if (args.results)
     {
-        for (std::size_t i = 0; i != np; ++i)
+        for (std::size_t i = 0; i != nx; ++i)
             std::cout << "U[" << i << "] = " << solution[i] << std::endl;
     }
 
@@ -175,31 +185,16 @@ int benchmark(boost::program_options::variables_map& vm)
 
 int main(int argc, char* argv[])
 {
-    namespace po = boost::program_options;
+    // parse params
+    args_params_t args = argparse::parse<args_params_t>(argc, argv);
+    // see if help wanted
+    if (args.help)
+    {
+        args.print(); // prints all variables
+        return 0;
+    }
 
-    po::options_description desc_commandline;
-    // clang-format off
-    desc_commandline.add_options()
-        ("results", "print generated results (default: false)")
-        ("nx", po::value<std::uint64_t>()->default_value(10),
-         "Local x dimension (of each partition)")
-        ("nt", po::value<std::uint64_t>()->default_value(45),
-         "Number of time steps")
-        ("np", po::value<std::uint64_t>()->default_value(10),
-         "Number of partitions")
-        ("k", po::value<double>(&k)->default_value(0.5),
-         "Heat transfer coefficient (default: 0.5)")
-        ("dt", po::value<double>(&dt)->default_value(1.0),
-         "Timestep unit (default: 1.0[s])")
-        ("dx", po::value<double>(&dx)->default_value(1.0),
-         "Local x dimension")
-        ( "no-header", "do not print out the csv header row")
-    ;
-    po::variables_map vm;
-    po::store(po::parse_command_line(argc, argv, desc_commandline), vm);
-    po::notify(vm);
+    benchmark(args);
 
-    benchmark(vm);
     return 0;
 }
-

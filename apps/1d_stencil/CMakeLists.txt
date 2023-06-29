@@ -1,11 +1,8 @@
 project(1d_stencil_stdpar LANGUAGES CXX)
 
-FIND_PACKAGE( Boost COMPONENTS program_options REQUIRED )
-INCLUDE_DIRECTORIES( ${Boost_INCLUDE_DIR} )
-
 file(GLOB STDPAR_SOURCES 
     "1d_stencil_2_stdpar.cpp"
-    "1d_stencil_3_partition_stdpar.cpp")
+    "1d_stencil_3_partition.cpp")
 
 foreach(source_file ${STDPAR_SOURCES})
     # get the file name without an extension
@@ -16,7 +13,7 @@ foreach(source_file ${STDPAR_SOURCES})
     set_source_files_properties(${source_file} PROPERTIES LANGUAGE CXX LINKER_LANGUAGE CXX)
     target_include_directories(${exec_name} PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
 
-    target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} ${Boost_LIBRARIES}) 
+    target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} ) 
 
     set_target_properties(${exec_name}
         PROPERTIES
@@ -29,7 +26,7 @@ foreach(source_file ${STDPAR_SOURCES})
     install(TARGETS ${exec_name} DESTINATION ${CMAKE_INSTALL_BINDIR})
 endforeach()
 
-# 1d_stencil_1_snd example needs some headers from stdexec library 
+# 1d_stencil_2_snd example needs some headers from stdexec library 
 # where these headers are not shipped by nvc++. The stdexec library
 # is recommended to built with CPM CMake project management tool. 
 # TODO: move CPM to external project; consider use cmake?
@@ -64,6 +61,6 @@ CPMAddPackage(
     "BUILD_TESTING OFF"
 )
 
-add_executable(1d_stencil_1_snd 1d_stencil_1_snd.cpp)
-target_link_libraries(1d_stencil_1_snd stdexec ${Boost_LIBRARIES})
-
+add_executable(1d_stencil_2_snd 1d_stencil_2_snd.cpp)
+target_link_libraries(1d_stencil_2_snd stdexec)
+target_include_directories(1d_stencil_2_snd PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
