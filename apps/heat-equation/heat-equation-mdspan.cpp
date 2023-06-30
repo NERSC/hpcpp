@@ -28,79 +28,11 @@
  * Simplified 2d heat equation example derived from amrex
  */
 
-#include "commons.hpp"
-#include "argparse/argparse.hpp"
-#include <experimental/mdspan>
+#include "heat-equation.hpp"
 
-// data type
-using Real_t = double;
-
-// number of dimensions
-constexpr int dims = 2;
-
-// 2D view
-using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
-
-// 3D view
-using view_3d = std::extents<int, std::dynamic_extent, std::dynamic_extent, std::dynamic_extent>;
-
-// macros to get x and y positions from indices
-#define pos(i, ghosts, dx)      -0.5 + dx * (i-ghosts)
-
-// parameters
-struct heat_params_t : public argparse::Args
-{
-    int &ncells = kwarg("n,ncells", "number of cells on each side of the domain").set_default(32);
-    int &nsteps = kwarg("s,nsteps", "total steps in simulation").set_default(100);
-    Real_t &alpha = kwarg("a,alpha", "thermal diffusivity").set_default(0.5f);
-    Real_t &dt = kwarg("t,dt", "time step").set_default(1.0e-5f);
-    bool &help = kwarg("h, help", "print help").set_default(false);
-    // future use if needed
-    // int &max_grid_size = kwarg("g, max_grid_size", "size of each box (or grid)").set_default(32);
-    // bool &verbose = kwarg("v, verbose", "verbose mode").set_default(false);
-    // int &plot_int = kwarg("p, plot_int", "how often to write a plotfile").set_default(-1);
-};
-
-template <typename T> void printGrid(T *grid, int len)
-{
-    auto view = std::mdspan<T, view_2d, std::layout_right> (grid, len, len);
-    std::cout << "Grid: " << std::endl;
-    std::cout << std::fixed << std::showpoint;
-    std::cout << std::setprecision(2);
-
-    for (auto j = 0; j < view.extent(1); ++j)
-    {
-        for (auto i = 0; i < view.extent(0); ++i)
-        {
-            std::cout << view(i, j) << ", ";
-        }
-        std::cout << std::endl;
-    }
-    std::cout << std::endl;
-}
-
-// fill boundary cells
-template <typename T>
-void fill2Dboundaries(T *grid, int len, int ghost_cells = 1)
-{
-    auto row_view = std::mdspan<T, view_2d, std::layout_right> (grid, len, len);
-
-    for (auto j = ghost_cells; j < row_view.extent(1) - ghost_cells; ++j)
-    {
-        row_view(0, j) = row_view(ghost_cells, j);
-        row_view(row_view.extent(0) - ghost_cells, j) = row_view(row_view.extent(0) - ghost_cells - 1, j);
-    }
-
-    auto col_view = std::mdspan<Real_t, view_2d, std::layout_left> (grid, len, len);
-
-    for (auto i = 1; i < col_view.extent(1) - 1; ++i)
-    {
-        col_view(0, i) = col_view(ghost_cells, i);
-        col_view(col_view.extent(0) - 1, i) = col_view(col_view.extent(0) - ghost_cells - 1, i);
-    }
-
-}
-
+//
+// simulation
+//
 int main(int argc, char *argv[])
 {
     // parse params
