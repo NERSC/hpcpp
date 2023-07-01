@@ -28,6 +28,9 @@
  * Simplified 2d heat equation example derived from amrex
  */
 
+// define this macro before including heat-equation.hpp to enable tiled parallel execution
+#define TILING
+
 #include "heat-equation.hpp"
 #include <stdexec/execution.hpp>
 #include "exec/static_thread_pool.hpp"
@@ -54,14 +57,12 @@ int main(int argc, char *argv[])
     // simulation variables
     int ncells = args.ncells;
     int nsteps = args.nsteps;
+    // number of parallel tiles
+    int ntiles = args.ntiles;
     Real_t dt = args.dt;
     Real_t alpha = args.alpha;
     // future if needed to split in multiple grids
     // int max_grid_size = args.max_grid_size;
-
-    // total number of ghost cells = ghosts x dims
-    constexpr int ghost_cells = 1;
-    constexpr int nghosts = ghost_cells * dims;
 
     // init simulation time
     Real_t time = 0.0;
@@ -78,17 +79,21 @@ int main(int argc, char *argv[])
     auto phi_old = std::mdspan<Real_t, view_2d, std::layout_right> (grid_old, ncells + nghosts, ncells + nghosts);
     auto phi_new = std::mdspan<Real_t, view_2d, std::layout_right> (grid_new, ncells, ncells);
 
-
     // scheduler from a thread pool
-    exec::static_thread_pool ctx{4};
+    exec::static_thread_pool ctx{ntiles};
 
     scheduler auto sch = ctx.get_scheduler();
     sender auto begin = schedule(sch);
 
     // initialize phi_old domain: {[-0.5, -0.5], [0.5, 0.5]} -> origin at [0,0]
-    sender auto heat_eq_sim = then(begin, [&]()
+    sender auto heat_eq_init = bulk(begin, ntiles, [&](int tile)
     {
-        std::for_each_n(std::execution::par_unseq, counting_iterator(0), ncells*ncells, [=](int pos)
+        int start = tile * (ncells*ncells) / ntiles;
+        int size = (ncells*ncells) / ntiles;
+        int remaining = (ncells*ncells) % ntiles;
+        size += (tile == ntiles -1) ? remaining: 0;
+
+        std::for_each_n(std::execution::par_unseq, counting_iterator(start), size, [=](int pos)
         {
             int i = 1 + (pos / ncells);
             int j = 1 + (pos % ncells);
@@ -107,32 +112,48 @@ int main(int argc, char *argv[])
     {
         // print the initial grid
         printGrid(grid_old, ncells+nghosts);
-    })
-    | then([&]()
+    });
+
+    // start the simulation
+    sync_wait(std::move(heat_eq_init));
+
+    // evolve the system
+    for (auto step = 0; step < nsteps ; step++)
     {
-        // evolve the system
-        for (auto step = 0; step < nsteps ; step++)
+        static sender auto evolve = then(begin, [&]()
         {
             // fill boundary cells in old_phi
             fill2Dboundaries(grid_old, ncells+nghosts, ghost_cells);
+        })
+        | bulk(ntiles, [&](int tile)
+        {
+            int start = tile * (ncells*ncells) / ntiles;
+            int size = (ncells*ncells) / ntiles;
+            int remaining = (ncells*ncells) % ntiles;
+            size += (tile == ntiles -1) ? remaining: 0;
 
             // update phi_new with stencil
-            std::for_each_n(std::execution::par_unseq, counting_iterator(0), ncells*ncells, [=](int pos)
+            std::for_each_n(std::execution::par_unseq, counting_iterator(start), size, [=](int pos)
             {
                 int i = 1 + (pos / ncells);
                 int j = 1 + (pos % ncells);
 
                 // Jacobi iteration
                 phi_new(i-1, j-1) = phi_old(i, j) + alpha * dt * (
-                        (phi_old(i+1, j) - 2.0 * phi_old(i, j) + phi_old(i-1, j)) / (dx[0] * dx[0]) +
-                        (phi_old(i, j+1) - 2.0 * phi_old(i, j) + phi_old(i, j-1)) / (dx[1] * dx[1]));
-            });
-
-            // update the simulation time
-            time += dt;
+                    (phi_old(i+1, j) - 2.0 * phi_old(i, j) + phi_old(i-1, j)) / (dx[0] * dx[0]) +
+                    (phi_old(i, j+1) - 2.0 * phi_old(i, j) + phi_old(i, j-1)) / (dx[1] * dx[1]));
+            }
+            );
+        })
+        | bulk(ntiles, [&](int tile)
+        {
+            int start = tile * (ncells*ncells) / ntiles;
+            int size = (ncells*ncells) / ntiles;
+            int remaining = (ncells*ncells) % ntiles;
+            size += (tile == ntiles -1) ? remaining: 0;
 
             // parallel copy phi_new to phi_old
-            std::for_each_n(std::execution::par_unseq, counting_iterator(0), ncells*ncells, [=](int pos)
+            std::for_each_n(std::execution::par_unseq, counting_iterator(start), size, [=](int pos)
             {
                 int i = 1 + (pos / ncells);
                 int j = 1 + (pos % ncells);
@@ -140,9 +161,17 @@ int main(int argc, char *argv[])
                 // copy phi_new to phi_old
                 phi_old(i, j) = phi_new(i-1, j-1);
             });
-        }
-    })
-    | then([&]()
+        })
+        | then([&]()
+        {
+            // update the simulation time
+            time += dt;
+        });
+
+        sync_wait(std::move(evolve));
+    }
+
+    sender auto finalize = then(just(), [&]()
     {
         // print the final grid
         printGrid(grid_new, ncells);
@@ -158,7 +187,7 @@ int main(int argc, char *argv[])
     });
 
     // start the simulation
-    sync_wait(std::move(heat_eq_sim));
+    sync_wait(std::move(finalize));
 
     return 0;
 }

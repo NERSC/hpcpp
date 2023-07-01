@@ -41,6 +41,10 @@ using Real_t = double;
 // number of dimensions
 constexpr int dims = 2;
 
+// total number of ghost cells = ghosts x dims
+constexpr int ghost_cells = 1;
+constexpr int nghosts = ghost_cells * dims;
+
 // 2D view
 using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
 
@@ -56,8 +60,11 @@ struct heat_params_t : public argparse::Args
     int &ncells = kwarg("n,ncells", "number of cells on each side of the domain").set_default(32);
     int &nsteps = kwarg("s,nsteps", "total steps in simulation").set_default(100);
     Real_t &alpha = kwarg("a,alpha", "thermal diffusivity").set_default(0.5f);
-    Real_t &dt = kwarg("t,dt", "time step").set_default(1.0e-5f);
+    Real_t &dt = kwarg("t,dt", "time step").set_default(5.0e-5f);
     bool &help = kwarg("h, help", "print help").set_default(false);
+#if defined (TILING)
+    int &ntiles = kwarg("ntiles", "number of parallel tiles").set_default(4);
+#endif // TILING
     // future use if needed
     // int &max_grid_size = kwarg("g, max_grid_size", "size of each box (or grid)").set_default(32);
     // bool &verbose = kwarg("v, verbose", "verbose mode").set_default(false);

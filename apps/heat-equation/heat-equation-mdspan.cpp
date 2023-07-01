@@ -53,10 +53,6 @@ int main(int argc, char *argv[])
     // future if needed to split in multiple grids
     // int max_grid_size = args.max_grid_size;
 
-    // total number of ghost cells = ghosts x dims
-    constexpr int ghost_cells = 1;
-    constexpr int nghosts = ghost_cells * dims;
-
     // initialize dx, dy, dz
     auto *dx = new Real_t[dims];
     for (int i = 0; i < dims; ++i)
