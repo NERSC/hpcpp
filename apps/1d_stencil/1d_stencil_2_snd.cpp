@@ -2,10 +2,10 @@
 //
 // This example provides a sender implementation for the 1D stencil code.
 
+#include "commons.hpp"
 #include "argparse/argparse.hpp"
 
 #include <algorithm>
-#include <iostream>
 #include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>
 #include <exec/any_sender_of.hpp>
@@ -74,9 +74,6 @@ struct stepper
 
                 next[0] = heat(current[nx - 1], current[0], current[1]);
 
-                auto currentPtr = current.data();
-                auto nextPtr = next.data();
-
                 for (std::size_t i = 1; i != nx - 1; ++i)
                     next[i] = heat(current[i - 1], current[i], current[i + 1]);
 
@@ -111,14 +108,14 @@ int benchmark(args_params_t const & args) {
 
     auto [solution] = stdexec::sync_wait(std::move(sender)).value();
 
+    auto elapsed = std::chrono::high_resolution_clock::now() - t;
+
     // Print the final solution
     if (args.results)
     {
         for (std::size_t i = 0; i != nx; ++i)
             std::cout << "U[" << i << "] = " << solution[i] << std::endl;
     }
-
-    auto elapsed = std::chrono::high_resolution_clock::now() - t;
 
     return 0;
 }
