@@ -30,6 +30,28 @@
 
 #include "heat-equation.hpp"
 
+// fill boundary cells
+template <typename T>
+void fill2Dboundaries_mdspan(T *grid, int len, int ghost_cells = 1)
+{
+    auto row_view = std::mdspan<T, view_2d, std::layout_right> (grid, len, len);
+
+    for (auto j = ghost_cells; j < row_view.extent(1) - ghost_cells; ++j)
+    {
+        row_view(0, j) = row_view(ghost_cells, j);
+        row_view(row_view.extent(0) - ghost_cells, j) = row_view(row_view.extent(0) - ghost_cells - 1, j);
+    }
+
+    auto col_view = std::mdspan<Real_t, view_2d, std::layout_left> (grid, len, len);
+
+    for (auto i = 1; i < col_view.extent(1) - 1; ++i)
+    {
+        col_view(0, i) = col_view(ghost_cells, i);
+        col_view(col_view.extent(0) - 1, i) = col_view(col_view.extent(0) - ghost_cells - 1, i);
+    }
+
+}
+
 //
 // simulation
 //
@@ -91,7 +113,7 @@ int main(int argc, char *argv[])
     for (auto step = 0; step < nsteps ; step++)
     {
         // fill boundary cells in old_phi
-        fill2Dboundaries(grid_old, ncells+nghosts, ghost_cells);
+        fill2Dboundaries_mdspan(grid_old, ncells+nghosts, ghost_cells);
 
         // update phi_new
         for (auto i = 1; i < phi_old.extent(0) - 1; i++)

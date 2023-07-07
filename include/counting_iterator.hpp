@@ -24,6 +24,10 @@
  * SOFTWARE.
  */
 
+//
+// counting_iterator taken from https://github.com/LLNL/LULESH/blob/2.0.2-dev/stdpar/src/lulesh.h#L687
+//
+
 #pragma once
 
 #include "commons.hpp"
