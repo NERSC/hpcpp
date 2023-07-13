@@ -69,6 +69,10 @@ add_executable(1d_stencil_3_partition_snd 1d_stencil_3_partition_snd.cpp)
 target_link_libraries(1d_stencil_3_partition_snd stdexec)
 target_include_directories(1d_stencil_3_partition_snd PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
 
-add_executable(1d_stencil_3_partition_snd_gpus 1d_stencil_3_partition_snd_gpus.cpp)
-target_link_libraries(1d_stencil_3_partition_snd_gpus stdexec)
-target_include_directories(1d_stencil_3_partition_snd_gpus PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
+add_executable(1d_stencil_3_partition_snd_gpu_single 1d_stencil_3_partition_snd_gpu_single.cpp)
+target_link_libraries(1d_stencil_3_partition_snd_gpu_single stdexec)
+target_include_directories(1d_stencil_3_partition_snd_gpu_single PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
+
+add_executable(1d_stencil_3_partition_snd_gpu_multi 1d_stencil_3_partition_snd_gpu_multi.cpp)
+target_link_libraries(1d_stencil_3_partition_snd_gpu_multi stdexec)
+target_include_directories(1d_stencil_3_partition_snd_gpu_multi PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR})
