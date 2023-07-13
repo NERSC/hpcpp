@@ -95,13 +95,13 @@ template <typename T>
 void fill2Dboundaries(T *grid, int len, int ghost_cells = 1)
 {
 
-    std::for_each_n(std::execution::par_unseq, counting_iterator(ghost_cells), len - ghost_cells, [=](auto i)
+    std::for_each_n(std::execution::par_unseq, counting_iterator(ghost_cells), len - nghosts, [=](auto i)
     {
         grid[i] = grid[i + (ghost_cells * len)];
         grid[i + (len * (len - ghost_cells))] = grid[i + (len * (len - ghost_cells - 1))];
     });
 
-    std::for_each_n(std::execution::par_unseq, counting_iterator(ghost_cells), len - ghost_cells, [=](auto j)
+    std::for_each_n(std::execution::par_unseq, counting_iterator(ghost_cells), len - nghosts, [=](auto j)
     {
         grid[j * len] = grid[(ghost_cells * len) + j];
         grid[(len - ghost_cells) + (len * j)] = grid[(len - ghost_cells - 1) + (len * j)];
