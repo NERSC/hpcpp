@@ -4,6 +4,7 @@
 
 #include "commons.hpp"
 #include "argparse/argparse.hpp"
+#include <experimental/mdspan>
 
 
 // parameters
@@ -27,6 +28,21 @@ double k = 0.5;        // heat transfer coefficient
 double dt = 1.;        // time step
 double dx = 1.;        // grid spacing
 
+inline std::size_t idx(std::size_t id, int dir, std::size_t size)
+{
+    if (id == 0 && dir == -1) {
+        return size - 1;
+    }
+        
+    if (id == size - 1 && (int) dir == +1) {
+        return 0; 
+    }
+
+    assert(id < size);
+
+    return id + dir;
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
 struct stepper
@@ -35,7 +51,18 @@ struct stepper
     typedef double partition;
 
     // Our data for one time step
-    typedef std::vector<partition> space;
+    using view_1d = std::extents<int, std::dynamic_extent>;
+    typedef std::mdspan<partition, view_1d, std::layout_right> space;
+
+    void init_value(auto& data) {
+        for(std::size_t i = 0; i != data.size(); ++i) {
+            std::size_t size = data.size();
+            double base_value = double(i * size);
+            for(std::size_t j = 0; j != size; ++j) {
+                data[i * size + j] = base_value + double(j);
+            }
+        }
+    }
 
     // Our operator
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
@@ -44,42 +71,37 @@ struct stepper
     }
 
     // do all the work on 'nx' data points for 'nt' time steps
-    space do_work(std::size_t nx, std::size_t nt)
+    space do_work(std::size_t np, std::size_t nx, std::size_t nt)
     {
-        // U[t][i] is the state of position i at time t.
-        std::vector<space> U(2, space(nx));
+        partition *current_ptr = new partition[np * nx];
+        partition *next_ptr = new partition[np * nx];
+        auto current = space (current_ptr, np*nx);
+        auto next = space (next_ptr, np*nx);
 
-        // Initial conditions: f(0, i) = i
-        for (std::size_t i = 0; i != nx; ++i)
-            U[0][i] = double(i);
+        init_value(current);
 
         // Actual time step loop
         for (std::size_t t = 0; t != nt; ++t)
         {
-            auto const & current = U[t % 2];
-            auto& next = U[(t + 1) % 2];
-
-            next[0] = heat(current[nx - 1], current[0], current[1]);
-
-            auto currentPtr = current.data();
-            auto nextPtr = next.data();
-
-            std::for_each_n(std::execution::par_unseq, counting_iterator(1), nx-1,
-                [=, k=k, dt=dt, dx=dx](int32_t i) {
-                nextPtr[i] = heat(currentPtr[i - 1], currentPtr[i], currentPtr[i + 1], k, dt, dx);
-            });
-
-
-            next[nx - 1] = heat(current[nx - 2], current[nx - 1], current[0]);
+            for(std::size_t i = 0; i < np; ++i) {
+                std::for_each_n(std::execution::par, counting_iterator(0), nx,
+                    [=, k=k, dt=dt, dx=dx](int32_t j) {
+                    auto id = i * nx + j;
+                    auto left = idx(id, -1, np * nx);
+                    auto right = idx(id, +1, np * nx);
+                    next[id] = heat(current[left], current[id], current[right], k, dt, dx);
+                });
+            }
+            std::swap(current, next);
         }
 
-        // Return the solution at time-step 'nt'.
-        return U[nt % 2];
+        return current;
     }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 int benchmark(args_params_t const & args) {
+    std::uint64_t np = args.np;    // Number of partitions.
     std::uint64_t nx = args.nx;    // Number of grid points.
     std::uint64_t nt = args.nt;    // Number of steps.
 
@@ -90,21 +112,22 @@ int benchmark(args_params_t const & args) {
     auto t = std::chrono::high_resolution_clock::now();
 
     // Execute nt time steps on nx grid points.
-    stepper::space solution = step.do_work(nx, nt);
+    auto solution = step.do_work(np, nx, nt);
 
     // Print the final solution
     if (args.results)
     {
-        for (std::size_t i = 0; i != nx; ++i)
-            std::cout << "U[" << i << "] = " << solution[i] << std::endl;
+        for (std::size_t i = 0; i != np; ++i) {
+            std::cout << "U[" << i << "] = {"; 
+            for (std::size_t j = 0; j != nx; ++j) {
+                std::cout << solution[i*np + j] << " ";
+            }
+            std::cout << "}\n";
+        }
     }
 
 
     auto elapsed = std::chrono::high_resolution_clock::now() - t;
-
-    // std::uint64_t const os_thread_count = hpx::get_os_thread_count();
-    // TODO: print time results
-    // print_time_results(os_thread_count, elapsed, nx, nt, header);
 
     return 0;
 }
