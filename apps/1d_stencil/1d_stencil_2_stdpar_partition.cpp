@@ -6,7 +6,6 @@
 #include "argparse/argparse.hpp"
 #include <experimental/mdspan>
 
-
 // parameters
 struct args_params_t : public argparse::Args
 {
@@ -19,6 +18,7 @@ struct args_params_t : public argparse::Args
     double &dx = kwarg("dx", "Local x dimension").set_default(1.0);
     bool &no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false); 
     bool &help = kwarg("h, help", "print help").set_default(false);
+    bool &time = kwarg("t, time", "print time").set_default(true);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -109,10 +109,11 @@ int benchmark(args_params_t const & args) {
     stepper step;
 
     // Measure execution time.
-    auto t = std::chrono::high_resolution_clock::now();
+    Timer timer;
 
     // Execute nt time steps on nx grid points.
     auto solution = step.do_work(np, nx, nt);
+    auto time = timer.stop();
 
     // Print the final solution
     if (args.results)
@@ -126,8 +127,9 @@ int benchmark(args_params_t const & args) {
         }
     }
 
-
-    auto elapsed = std::chrono::high_resolution_clock::now() - t;
+    if (args.time) {
+        std::cout << "Duration: " << time << " ms." << "\n";
+    }
 
     return 0;
 }
