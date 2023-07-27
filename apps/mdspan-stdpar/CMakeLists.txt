@@ -12,7 +12,7 @@ set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/mdspan-stdpar.cpp PROPERTI
 # DO NOT include ${MAGICENUM_INCLUDE_DIR} as it results in an internal error at templates due to CUDA compiler.
 target_include_directories(mdspan-stdpar PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${MDSPAN_INCLUDE_DIR})
 
-target_link_libraries(mdspan-stdpar PUBLIC ${MPI_LIBS})
+target_link_libraries(mdspan-stdpar PUBLIC ${MPI_LIBS} stdexec)
 
 set_target_properties(mdspan-stdpar
     PROPERTIES
