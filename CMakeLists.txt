@@ -64,10 +64,36 @@ endif()
 ##########################################################################################
 
 # this is a hack should be automatically detected from the CMAKE_PREFIX_PATH instead of manual
-set(STDEXEC_PATH /global/homes/m/mhaseeb/repos/stdexec/install/)
+set(CPM_DOWNLOAD_VERSION 0.34.0)
 
-include_directories(${STDEXEC_PATH}/include)
-link_directories(${STD_EXEC_PATH}/lib64)
+if(CPM_SOURCE_CACHE)
+  set(CPM_DOWNLOAD_LOCATION "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+elseif(DEFINED ENV{CPM_SOURCE_CACHE})
+  set(CPM_DOWNLOAD_LOCATION "$ENV{CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+else()
+  set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+endif()
+
+if(NOT (EXISTS ${CPM_DOWNLOAD_LOCATION}))
+  message(STATUS "Downloading CPM.cmake to ${CPM_DOWNLOAD_LOCATION}")
+  file(DOWNLOAD
+       https://github.com/TheLartians/CPM.cmake/releases/download/v${CPM_DOWNLOAD_VERSION}/CPM.cmake
+       ${CPM_DOWNLOAD_LOCATION}
+  )
+endif()
+
+include(${CPM_DOWNLOAD_LOCATION})
+
+CPMAddPackage(
+  NAME stdexec
+  GITHUB_REPOSITORY NVIDIA/stdexec
+  GIT_TAG main # This will always pull the latest code from the `main` branch. You may also use a specific release version or tag
+  OPTIONS 
+    "STDEXEC_BUILD_EXAMPLES OFF" 
+    "STDEXEC_BUILD_TESTS OFF" 
+    "STDEXEC_ENABLE_IO_URING_TESTS OFF"
+    "BUILD_TESTING OFF"
+)
 
 # need to add appropriate flags for stdexec
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --experimental-stdpar -stdpar=gpu --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread")
