@@ -10,7 +10,7 @@
 struct args_params_t : public argparse::Args
 {
     bool &results = kwarg("results", "print generated results (default: false)").set_default(false);
-    std::uint64_t &nx = kwarg("nx", "Local x dimension (of each partition)").set_default(100);
+    std::uint64_t &nx = kwarg("nx", "Local x dimension (of each partition)").set_default(10);
     std::uint64_t &nt = kwarg("nt", "Number of time steps").set_default(45);
     std::uint64_t &np = kwarg("np", "Number of partitions").set_default(10);
     bool &k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
@@ -28,20 +28,6 @@ double k = 0.5;        // heat transfer coefficient
 double dt = 1.;        // time step
 double dx = 1.;        // grid spacing
 
-inline std::size_t idx(std::size_t id, int dir, std::size_t size)
-{
-    if (id == 0 && dir == -1) {
-        return size - 1;
-    }
-        
-    if (id == size - 1 && (int) dir == +1) {
-        return 0; 
-    }
-
-    assert(id < size);
-
-    return id + dir;
-}
 
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
@@ -54,12 +40,12 @@ struct stepper
     using view_1d = std::extents<int, std::dynamic_extent>;
     typedef std::mdspan<partition, view_1d, std::layout_right> space;
 
-    void init_value(auto& data) {
-        for(std::size_t i = 0; i != data.size(); ++i) {
-            std::size_t size = data.size();
-            double base_value = double(i * size);
-            for(std::size_t j = 0; j != size; ++j) {
-                data[i * size + j] = base_value + double(j);
+    void init_value(auto& data, std::size_t np, std::size_t nx) {
+        std::size_t size = data.size();
+        for(std::size_t i = 0; i != np; ++i) {
+            double base_value = double(i * nx);
+            for(std::size_t j = 0; j != nx; ++j) {
+                data[i * nx + j] = base_value + double(j);
             }
         }
     }
@@ -70,15 +56,31 @@ struct stepper
         return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
     }
 
+
+    inline std::size_t idx(std::size_t id, int dir, std::size_t size)
+    {
+        if (id == 0 && dir == -1) {
+            return size - 1;
+        }
+
+        if (id == size - 1 && dir == +1) {
+            return (std::size_t) 0; 
+        }
+        assert(id < size);
+
+        return id + dir;
+    }
+
     // do all the work on 'nx' data points for 'nt' time steps
     space do_work(std::size_t np, std::size_t nx, std::size_t nt)
     {
-        partition *current_ptr = new partition[np * nx];
-        partition *next_ptr = new partition[np * nx];
-        auto current = space (current_ptr, np*nx);
-        auto next = space (next_ptr, np*nx);
+        std::size_t size = np * nx;
+        partition *current_ptr = new partition[size];
+        partition *next_ptr = new partition[size];
+        auto current = space (current_ptr, size);
+        auto next = space (next_ptr, size);
 
-        init_value(current);
+        init_value(current, np, nx);
 
         // Actual time step loop
         for (std::size_t t = 0; t != nt; ++t)
@@ -86,9 +88,11 @@ struct stepper
             for(std::size_t i = 0; i < np; ++i) {
                 std::for_each_n(std::execution::par, counting_iterator(0), nx,
                     [=, k=k, dt=dt, dx=dx](int32_t j) {
-                    auto id = i * nx + j;
-                    auto left = idx(id, -1, np * nx);
-                    auto right = idx(id, +1, np * nx);
+                    std::size_t id = i * nx + j;
+                    int move_left = -1;
+                    int move_right = +1;
+                    auto left = idx(id, move_left, size);
+                    auto right = idx(id, move_right, size);
                     next[id] = heat(current[left], current[id], current[right], k, dt, dx);
                 });
             }
