@@ -180,7 +180,7 @@ int benchmark(args_params_t const & args)
     // Print the final solution
     if (args.results)
     {
-        for (std::size_t i = 0; i != nx; ++i)
+        for (std::size_t i = 0; i != np; ++i)
             std::cout << "U[" << i << "] = " << solution[i] << std::endl;
     }
 
