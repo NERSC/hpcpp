@@ -12,6 +12,7 @@
 
 #include <nvexec/stream_context.cuh>
 
+// #include <thrust/device_vector.h>
 #include <thrust/universal_vector.h>
 
 // parameters
@@ -105,14 +106,11 @@ struct stepper
         for (std::size_t t = 0; t != nt; ++t) {
             auto sender =
                 tx
-                | stdexec::bulk(np, [&](int i, auto current_s, auto next_s, 
+                | stdexec::bulk(np * nx, [&](int i, auto current_s, auto next_s, 
                                         auto k, auto dt, auto dx, auto np, auto nx) {
-                    for(int j = 0; j < nx; j++) {
-                        std::size_t id = i * nx + j;
-                        auto left = idx(id, -1, np * nx);
-                        auto right = idx(id, +1, np * nx);
-                        next_s[id] = heat(current_s[left], current_s[id], current_s[right], k, dt, dx);
-                    }
+                    auto left = idx(i, -1, np * nx);
+                    auto right = idx(i, +1, np * nx);
+                    next_s[i] = heat(current_s[left], current_s[i], current_s[right], k, dt, dx);
                 });
             stdexec::sync_wait(std::move(sender));
             std::swap_ranges(current_span.begin(), current_span.end(), next_span.begin());
