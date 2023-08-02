@@ -63,13 +63,6 @@ struct stepper
         }
     }
 
-    void init_zero(auto& data, std::size_t np, std::size_t nx) {
-        std::size_t size = data.size();
-        for(std::size_t i = 0; i != size; ++i) {
-            data[i] = 0; 
-        }
-    }
-
     // Our operator
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
     {
@@ -106,7 +99,6 @@ struct stepper
             next = space (next_ptr, size);
 
             init_value(current, np, nx);
-            init_zero(next, np, nx);
 
             return stdexec::just(current);
         }
@@ -115,7 +107,7 @@ struct stepper
             | stdexec::let_value([=](std::size_t nt_updated) { return do_work(np, nx, nt_updated); })
             | stdexec::bulk(np, [=, k=k, dt=dt, dx=dx, nx=nx, np=np](std::size_t i, auto current) { 
                 std::for_each_n(std::execution::par, counting_iterator(0), nx,
-                [=, next=next, current=current, k= ::k, dt = ::dt, dx = ::dx](std::size_t j) {
+                [=, next=next, current=current, k= ::k, dt = ::dt, dx = ::dx, i=i](std::size_t j) {
                     std::size_t id = i * nx + j;
                     auto left = idx(id, -1, np * nx);
                     auto right = idx(id, +1, np * nx);
@@ -123,7 +115,9 @@ struct stepper
                 });
             })
             | stdexec::then([&](auto current) { 
-                return next;
+                // TODO: return next?
+                std::swap(current, next);
+                return current;
         });
     }
 };
