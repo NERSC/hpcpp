@@ -6,6 +6,14 @@
 #include "argparse/argparse.hpp"
 #include <experimental/mdspan>
 
+#include <stdexec/execution.hpp>
+#include <exec/static_thread_pool.hpp>
+#include <exec/any_sender_of.hpp>
+
+#include <nvexec/multi_gpu_context.cuh>
+
+#include <thrust/device_vector.h>
+
 // parameters
 struct args_params_t : public argparse::Args
 {
@@ -29,6 +37,11 @@ double dt = 1.;        // time step
 double dx = 1.;        // grid spacing
 
 
+
+template <class... Ts>
+using any_sender_of = typename exec::any_receiver_ref<
+    stdexec::completion_signatures<Ts...>>::template any_sender<>;
+
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
 struct stepper
@@ -37,8 +50,7 @@ struct stepper
     typedef double partition;
 
     // Our data for one time step
-    using view_1d = std::extents<int, std::dynamic_extent>;
-    typedef std::mdspan<partition, view_1d, std::layout_right> space;
+    typedef thrust::device_vector<partition> space;
 
     void init_value(auto& data, std::size_t np, std::size_t nx) {
         for(std::size_t i = 0; i != np; ++i) {
@@ -49,12 +61,18 @@ struct stepper
         }
     }
 
+    void init_zeros(auto& data, std::size_t np, std::size_t nx) {
+        auto size = np * nx;
+        for(std::size_t i = 0; i != size; ++i) {
+            data[i] = double(0);
+        }
+    }
+
     // Our operator
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
     {
         return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
     }
-
 
     inline std::size_t idx(std::size_t id, int dir, std::size_t size)
     {
@@ -71,32 +89,31 @@ struct stepper
     }
 
     // do all the work on 'nx' data points for 'nt' time steps
-    space do_work(std::size_t np, std::size_t nx, std::size_t nt)
+    space do_work(stdexec::scheduler auto& sch, std::size_t np, std::size_t nx, std::size_t nt)
     {
         std::size_t size = np * nx;
-        partition *current_ptr = new partition[size];
-        partition *next_ptr = new partition[size];
-        auto current = space (current_ptr, size);
-        auto next = space (next_ptr, size);
+        thrust::device_vector<partition> current_vec(size);
+        thrust::device_vector<partition> next_vec(size);
+        init_value(current_vec, np, nx);
 
-        init_value(current, np, nx);
-
-        // Actual time step loop
-        for (std::size_t t = 0; t != nt; ++t)
-        {
-            for(std::size_t i = 0; i < np; ++i) {
-                std::for_each_n(std::execution::par, counting_iterator(0), nx,
-                    [=, k=k, dt=dt, dx=dx](int32_t j) {
-                    std::size_t id = i * nx + j;
-                    auto left = idx(id, -1, size);
-                    auto right = idx(id, +1, size);
-                    next[id] = heat(current[left], current[id], current[right], k, dt, dx);
+        for (std::size_t t = 0; t != nt; ++t) {
+            auto current_ptr = thrust::raw_pointer_cast(current_vec.data());
+            auto next_ptr = thrust::raw_pointer_cast(next_vec.data());
+            auto sender =
+                stdexec::schedule(sch)
+                | stdexec::bulk(np, [=, k= ::k, dt = ::dt, dx = ::dx, nx=nx, np=np](int i) {
+                    for(int j = 0; j < nx; j++) {
+                        std::size_t id = i * nx + j;
+                        auto left = idx(id, -1, np * nx);
+                        auto right = idx(id, +1, np * nx);
+                        next_ptr[id] = heat(current_ptr[left], current_ptr[id], current_ptr[right], k, dt, dx);
+                    }
                 });
-            }
-            std::swap(current, next);
+            stdexec::sync_wait(std::move(sender));
+            current_vec.swap(next_vec);
         }
 
-        return current;
+        return current_vec; 
     }
 };
 
@@ -109,11 +126,15 @@ int benchmark(args_params_t const & args) {
     // Create the stepper object
     stepper step;
 
+    nvexec::multi_gpu_stream_context stream_context{};
+    stdexec::scheduler auto sch = stream_context.get_scheduler();
+
     // Measure execution time.
     Timer timer;
 
     // Execute nt time steps on nx grid points.
-    auto solution = step.do_work(np, nx, nt);
+    stepper::space solution = step.do_work(sch, np, nx, nt);
+
     auto time = timer.stop();
 
     // Print the final solution

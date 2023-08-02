@@ -14,7 +14,7 @@
 struct args_params_t : public argparse::Args
 {
     bool &results = kwarg("results", "print generated results (default: false)").set_default(false);
-    std::uint64_t &nx = kwarg("nx", "Local x dimension (of each partition)").set_default(100);
+    std::uint64_t &nx = kwarg("nx", "Local x dimension (of each partition)").set_default(10);
     std::uint64_t &nt = kwarg("nt", "Number of time steps").set_default(45);
     std::uint64_t &np = kwarg("np", "Number of partitions").set_default(10);
     bool &k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
@@ -32,20 +32,7 @@ double k = 0.5;        // heat transfer coefficient
 double dt = 1.;        // time step
 double dx = 1.;        // grid spacing
 
-inline std::size_t idx(std::size_t id, int dir, std::size_t size)
-{
-    if (id == 0 && dir == -1) {
-        return size - 1;
-    }
-        
-    if (id == size - 1 && (int) dir == +1) {
-        return 0; 
-    }
 
-    assert(id < size);
-
-    return id + dir;
-}
 
 template <class... Ts>
 using any_sender_of = typename exec::any_receiver_ref<
@@ -67,12 +54,11 @@ struct stepper
                   stdexec::set_stopped_t(),
                   stdexec::set_error_t(std::exception_ptr)>;
 
-    void init_value(auto& data) {
-        for(std::size_t i = 0; i != data.size(); ++i) {
-            std::size_t size = data.size();
-            double base_value = double(i * size);
-            for(std::size_t j = 0; j != size; ++j) {
-                data[i * size + j] = base_value + double(j);
+    void init_value(auto& data, std::size_t np, std::size_t nx) {
+        for(std::size_t i = 0; i != np; ++i) {
+            double base_value = double(i * nx);
+            for(std::size_t j = 0; j != nx; ++j) {
+                data[i * nx + j] = base_value + double(j);
             }
         }
     }
@@ -81,6 +67,20 @@ struct stepper
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
     {
         return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
+    }
+
+    inline std::size_t idx(std::size_t id, int dir, std::size_t size)
+    {
+        if (id == 0 && dir == -1) {
+            return size - 1;
+        }
+
+        if (id == size - 1 && dir == +1) {
+            return (std::size_t) 0; 
+        }
+        assert(id < size);
+
+        return id + dir;
     }
 
     partition* current_ptr = nullptr;
@@ -92,11 +92,13 @@ struct stepper
     auto do_work(std::size_t np, std::size_t nx, std::size_t nt) -> any_space_sender
     {
         if (nt == 0) {
-            current_ptr = new partition[np * nx];
-            next_ptr = new partition[np * nx];
-            current = space(current_ptr, np*nx);
-            next = space(next_ptr, np*nx);
-            init_value(current);
+            std::size_t size = np * nx;
+            partition *current_ptr = new partition[size];
+            partition *next_ptr = new partition[size];
+            current = space (current_ptr, size);
+            next = space (next_ptr, size);
+
+            init_value(current, np, nx);
 
             return stdexec::just(current);
         }
@@ -104,19 +106,16 @@ struct stepper
         return stdexec::just(nt - 1)
             | stdexec::let_value([=](std::size_t nt_updated) { return do_work(np, nx, nt_updated); })
             | stdexec::bulk(np, [=, k=k, dt=dt, dx=dx, nx=nx, np=np](std::size_t i, auto current) { 
-                // next[i] = heat_part(current[idx(i, -1, np)], current[i], current[idx(i, +1, np)]);
-                // std::for_each_n(std::execution::par, counting_iterator(0), nx,
-                // [=, k= ::k, dt = ::dt, dx = ::dx, i=i, np=np, nx=nx](std::size_t j) {
-                    for(int j = 0; j < nx; j++) {
-                        std::size_t id = i * nx + j;
-                        auto left = idx(id, -1, np * nx);
-                        auto right = idx(id, +1, np * nx);
-
-                         next[id] = heat(current[left], current[id], current[right], k, dt, dx);
-                    }
-                //});
+                std::for_each_n(std::execution::par, counting_iterator(0), nx,
+                [=, next=next, current=current, k= ::k, dt = ::dt, dx = ::dx, i=i](std::size_t j) {
+                    std::size_t id = i * nx + j;
+                    auto left = idx(id, -1, np * nx);
+                    auto right = idx(id, +1, np * nx);
+                    next[id] = heat(current[left], current[id], current[right], k, dt, dx);
+                });
             })
             | stdexec::then([&](auto current) { 
+                // TODO: return next?
                 std::swap(current, next);
                 return current;
         });
@@ -155,7 +154,7 @@ int benchmark(args_params_t const & args) {
         for (std::size_t i = 0; i != np; ++i) {
             std::cout << "U[" << i << "] = {"; 
             for (std::size_t j = 0; j != nx; ++j) {
-                std::cout << solution[i*np + j] << " ";
+                std::cout << solution[i*nx + j] << " ";
             }
             std::cout << "}\n";
         }

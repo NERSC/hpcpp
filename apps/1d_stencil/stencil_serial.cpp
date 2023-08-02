@@ -85,13 +85,12 @@ struct stepper
         for (std::size_t t = 0; t != nt; ++t)
         {
             for(std::size_t i = 0; i < np; ++i) {
-                std::for_each_n(std::execution::par, counting_iterator(0), nx,
-                    [=, k=k, dt=dt, dx=dx](int32_t j) {
+                for (std::size_t j = 0; j < nx; j++) {
                     std::size_t id = i * nx + j;
                     auto left = idx(id, -1, size);
                     auto right = idx(id, +1, size);
                     next[id] = heat(current[left], current[id], current[right], k, dt, dx);
-                });
+                };
             }
             std::swap(current, next);
         }
