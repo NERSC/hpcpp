@@ -12,7 +12,7 @@
 
 #include <nvexec/stream_context.cuh>
 
-#include <thrust/device_vector.h>
+#include <thrust/universal_vector.h>
 
 // parameters
 struct args_params_t : public argparse::Args
@@ -36,8 +36,6 @@ double k = 0.5;        // heat transfer coefficient
 double dt = 1.;        // time step
 double dx = 1.;        // grid spacing
 
-
-
 template <class... Ts>
 using any_sender_of = typename exec::any_receiver_ref<
     stdexec::completion_signatures<Ts...>>::template any_sender<>;
@@ -50,7 +48,7 @@ struct stepper
     typedef double partition;
 
     // Our data for one time step
-    typedef thrust::device_vector<partition> space;
+    typedef thrust::universal_vector<partition> space;
 
     void init_value(auto& data, std::size_t np, std::size_t nx) {
         for(std::size_t i = 0; i != np; ++i) {
@@ -92,25 +90,32 @@ struct stepper
     space do_work(stdexec::scheduler auto& sch, std::size_t np, std::size_t nx, std::size_t nt)
     {
         std::size_t size = np * nx;
-        thrust::device_vector<partition> current_vec(size);
-        thrust::device_vector<partition> next_vec(size);
+        thrust::universal_vector<partition> current_vec(size);
+        thrust::universal_vector<partition> next_vec(size);
+
         init_value(current_vec, np, nx);
 
+        auto current_ptr = thrust::raw_pointer_cast(current_vec.data());
+        auto next_ptr = thrust::raw_pointer_cast(next_vec.data());
+        auto current_span = std::span{current_ptr, current_ptr + size};
+        auto next_span = std::span{next_ptr, next_ptr + size};
+
+        auto tx = stdexec::transfer_just(sch, current_span, next_span, k, dt, dx, np, nx);
+
         for (std::size_t t = 0; t != nt; ++t) {
-            auto current_ptr = thrust::raw_pointer_cast(current_vec.data());
-            auto next_ptr = thrust::raw_pointer_cast(next_vec.data());
             auto sender =
-                stdexec::schedule(sch)
-                | stdexec::bulk(np, [=, k= ::k, dt = ::dt, dx = ::dx, nx=nx, np=np](int i) {
+                tx
+                | stdexec::bulk(np, [&](int i, auto current_s, auto next_s, 
+                                        auto k, auto dt, auto dx, auto np, auto nx) {
                     for(int j = 0; j < nx; j++) {
                         std::size_t id = i * nx + j;
                         auto left = idx(id, -1, np * nx);
                         auto right = idx(id, +1, np * nx);
-                        next_ptr[id] = heat(current_ptr[left], current_ptr[id], current_ptr[right], k, dt, dx);
+                        next_s[id] = heat(current_s[left], current_s[id], current_s[right], k, dt, dx);
                     }
                 });
             stdexec::sync_wait(std::move(sender));
-            current_vec.swap(next_vec);
+            std::swap_ranges(current_span.begin(), current_span.end(), next_span.begin());
         }
 
         return current_vec; 
