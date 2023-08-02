@@ -41,7 +41,6 @@ struct stepper
     typedef std::mdspan<partition, view_1d, std::layout_right> space;
 
     void init_value(auto& data, std::size_t np, std::size_t nx) {
-        std::size_t size = data.size();
         for(std::size_t i = 0; i != np; ++i) {
             double base_value = double(i * nx);
             for(std::size_t j = 0; j != nx; ++j) {
@@ -89,10 +88,8 @@ struct stepper
                 std::for_each_n(std::execution::par, counting_iterator(0), nx,
                     [=, k=k, dt=dt, dx=dx](int32_t j) {
                     std::size_t id = i * nx + j;
-                    int move_left = -1;
-                    int move_right = +1;
-                    auto left = idx(id, move_left, size);
-                    auto right = idx(id, move_right, size);
+                    auto left = idx(id, -1, size);
+                    auto right = idx(id, +1, size);
                     next[id] = heat(current[left], current[id], current[right], k, dt, dx);
                 });
             }
@@ -125,7 +122,7 @@ int benchmark(args_params_t const & args) {
         for (std::size_t i = 0; i != np; ++i) {
             std::cout << "U[" << i << "] = {"; 
             for (std::size_t j = 0; j != nx; ++j) {
-                std::cout << solution[i*np + j] << " ";
+                std::cout << solution[i*nx + j] << " ";
             }
             std::cout << "}\n";
         }
