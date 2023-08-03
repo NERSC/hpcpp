@@ -40,15 +40,6 @@ struct stepper
     using view_1d = std::extents<int, std::dynamic_extent>;
     typedef std::mdspan<partition, view_1d, std::layout_right> space;
 
-    void init_value(auto& data, std::size_t np, std::size_t nx) {
-        for(std::size_t i = 0; i != np; ++i) {
-            double base_value = double(i * nx);
-            for(std::size_t j = 0; j != nx; ++j) {
-                data[i * nx + j] = base_value + double(j);
-            }
-        }
-    }
-
     // Our operator
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
     {
@@ -76,10 +67,14 @@ struct stepper
         std::size_t size = np * nx;
         partition *current_ptr = new partition[size];
         partition *next_ptr = new partition[size];
+
         auto current = space (current_ptr, size);
         auto next = space (next_ptr, size);
-
-        init_value(current, np, nx);
+        // parallel init
+        std::for_each_n(std::execution::par, counting_iterator(0), np * nx,
+            [=](std::size_t i) {
+                current_ptr[i] = (double) i;
+        });
 
         // Actual time step loop
         for (std::size_t t = 0; t != nt; ++t)

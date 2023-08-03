@@ -11,7 +11,8 @@
 #include <exec/any_sender_of.hpp>
 
 #include <nvexec/multi_gpu_context.cuh>
-#include <thrust/universal_vector.h>
+
+#include <thrust/device_vector.h>
 
 // parameters
 struct args_params_t : public argparse::Args
@@ -47,23 +48,7 @@ struct stepper
     typedef double partition;
 
     // Our data for one time step
-    typedef thrust::universal_vector<partition> space;
-
-    void init_value(auto& data, std::size_t np, std::size_t nx) {
-        for(std::size_t i = 0; i != np; ++i) {
-            double base_value = double(i * nx);
-            for(std::size_t j = 0; j != nx; ++j) {
-                data[i * nx + j] = base_value + double(j);
-            }
-        }
-    }
-
-    void init_zeros(auto& data, std::size_t np, std::size_t nx) {
-        auto size = np * nx;
-        for(std::size_t i = 0; i != size; ++i) {
-            data[i] = double(0);
-        }
-    }
+    typedef thrust::device_vector<partition> space;
 
     // Our operator
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
@@ -89,29 +74,30 @@ struct stepper
     space do_work(stdexec::scheduler auto& sch, std::size_t np, std::size_t nx, std::size_t nt)
     {
         std::size_t size = np * nx;
-        thrust::universal_vector<partition> current_vec(size);
-        thrust::universal_vector<partition> next_vec(size);
-
-        init_value(current_vec, np, nx);
+        thrust::device_vector<partition> current_vec(size);
+        thrust::device_vector<partition> next_vec(size);
 
         auto current_ptr = thrust::raw_pointer_cast(current_vec.data());
         auto next_ptr = thrust::raw_pointer_cast(next_vec.data());
-        auto current_span = std::span{current_ptr, current_ptr + size};
-        auto next_span = std::span{next_ptr, next_ptr + size};
 
-        auto tx = stdexec::transfer_just(sch, current_span, next_span, k, dt, dx, np, nx);
+        stdexec::sender auto init = 
+            stdexec::transfer_just(sch, current_ptr, nx)
+            | stdexec::bulk(np * nx, [&](int i, auto& current_ptr, auto nx) { 
+                current_ptr[i] = (double) i; 
+            });
+        stdexec::sync_wait(std::move(init));
 
         for (std::size_t t = 0; t != nt; ++t) {
             auto sender =
-                tx
-                | stdexec::bulk(np * nx, [&](int i, auto current_s, auto next_s, 
+                stdexec::transfer_just(sch, current_ptr, next_ptr, k, dt, dx, np, nx)
+                | stdexec::bulk(np * nx, [&](int i, auto current_ptr, auto next_ptr, 
                                         auto k, auto dt, auto dx, auto np, auto nx) {
                     auto left = idx(i, -1, np * nx);
                     auto right = idx(i, +1, np * nx);
-                    next_s[i] = heat(current_s[left], current_s[i], current_s[right], k, dt, dx);
+                    next_ptr[i] = heat(current_ptr[left], current_ptr[i], current_ptr[right], k, dt, dx);
                 });
             stdexec::sync_wait(std::move(sender));
-            std::swap_ranges(current_span.begin(), current_span.end(), next_span.begin());
+            std::swap(current_ptr, next_ptr);
         }
 
         return current_vec; 

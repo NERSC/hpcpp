@@ -41,11 +41,8 @@ struct stepper
     typedef std::mdspan<partition, view_1d, std::layout_right> space;
 
     void init_value(auto& data, std::size_t np, std::size_t nx) {
-        for(std::size_t i = 0; i != np; ++i) {
-            double base_value = double(i * nx);
-            for(std::size_t j = 0; j != nx; ++j) {
-                data[i * nx + j] = base_value + double(j);
-            }
+        for(std::size_t i = 0; i != np * nx; ++i) {
+            data[i] = double(i);
         }
     }
 
