@@ -10,7 +10,7 @@
 #include <exec/static_thread_pool.hpp>
 #include <exec/any_sender_of.hpp>
 
-#include <nvexec/multi_gpu_context.cuh>
+#include <nvexec/stream_context.cuh>
 
 #include <thrust/device_vector.h>
 
@@ -36,8 +36,6 @@ double k = 0.5;        // heat transfer coefficient
 double dt = 1.;        // time step
 double dx = 1.;        // grid spacing
 
-
-
 template <class... Ts>
 using any_sender_of = typename exec::any_receiver_ref<
     stdexec::completion_signatures<Ts...>>::template any_sender<>;
@@ -51,22 +49,6 @@ struct stepper
 
     // Our data for one time step
     typedef thrust::device_vector<partition> space;
-
-    void init_value(auto& data, std::size_t np, std::size_t nx) {
-        for(std::size_t i = 0; i != np; ++i) {
-            double base_value = double(i * nx);
-            for(std::size_t j = 0; j != nx; ++j) {
-                data[i * nx + j] = base_value + double(j);
-            }
-        }
-    }
-
-    void init_zeros(auto& data, std::size_t np, std::size_t nx) {
-        auto size = np * nx;
-        for(std::size_t i = 0; i != size; ++i) {
-            data[i] = double(0);
-        }
-    }
 
     // Our operator
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
@@ -94,23 +76,28 @@ struct stepper
         std::size_t size = np * nx;
         thrust::device_vector<partition> current_vec(size);
         thrust::device_vector<partition> next_vec(size);
-        init_value(current_vec, np, nx);
+
+        auto current_ptr = thrust::raw_pointer_cast(current_vec.data());
+        auto next_ptr = thrust::raw_pointer_cast(next_vec.data());
+
+        stdexec::sender auto init = 
+            stdexec::transfer_just(sch, current_ptr, nx)
+            | stdexec::bulk(np * nx, [&](int i, auto& current_ptr, auto nx) { 
+                current_ptr[i] = (double) i; 
+            });
+        stdexec::sync_wait(std::move(init));
 
         for (std::size_t t = 0; t != nt; ++t) {
-            auto current_ptr = thrust::raw_pointer_cast(current_vec.data());
-            auto next_ptr = thrust::raw_pointer_cast(next_vec.data());
             auto sender =
-                stdexec::schedule(sch)
-                | stdexec::bulk(np, [=, k= ::k, dt = ::dt, dx = ::dx, nx=nx, np=np](int i) {
-                    for(int j = 0; j < nx; j++) {
-                        std::size_t id = i * nx + j;
-                        auto left = idx(id, -1, np * nx);
-                        auto right = idx(id, +1, np * nx);
-                        next_ptr[id] = heat(current_ptr[left], current_ptr[id], current_ptr[right], k, dt, dx);
-                    }
+                stdexec::transfer_just(sch, current_ptr, next_ptr, k, dt, dx, np, nx)
+                | stdexec::bulk(np * nx, [&](int i, auto current_ptr, auto next_ptr, 
+                                        auto k, auto dt, auto dx, auto np, auto nx) {
+                    auto left = idx(i, -1, np * nx);
+                    auto right = idx(i, +1, np * nx);
+                    next_ptr[i] = heat(current_ptr[left], current_ptr[i], current_ptr[right], k, dt, dx);
                 });
             stdexec::sync_wait(std::move(sender));
-            current_vec.swap(next_vec);
+            std::swap(current_ptr, next_ptr);
         }
 
         return current_vec; 
@@ -126,8 +113,8 @@ int benchmark(args_params_t const & args) {
     // Create the stepper object
     stepper step;
 
-    nvexec::multi_gpu_stream_context stream_context{};
-    stdexec::scheduler auto sch = stream_context.get_scheduler();
+    nvexec::stream_context stream_ctx{};
+    stdexec::scheduler auto sch = stream_ctx.get_scheduler();
 
     // Measure execution time.
     Timer timer;

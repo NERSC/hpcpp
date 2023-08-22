@@ -54,15 +54,6 @@ struct stepper
                   stdexec::set_stopped_t(),
                   stdexec::set_error_t(std::exception_ptr)>;
 
-    void init_value(auto& data, std::size_t np, std::size_t nx) {
-        for(std::size_t i = 0; i != np; ++i) {
-            double base_value = double(i * nx);
-            for(std::size_t j = 0; j != nx; ++j) {
-                data[i * nx + j] = base_value + double(j);
-            }
-        }
-    }
-
     // Our operator
     double heat(double left, double middle, double right, const double k = ::k, const double dt = ::dt, const double dx = ::dx)
     {
@@ -98,16 +89,20 @@ struct stepper
             current = space (current_ptr, size);
             next = space (next_ptr, size);
 
-            init_value(current, np, nx);
+            // parallel init
+            std::for_each_n(std::execution::par, counting_iterator(0), np * nx,
+                [=](std::size_t i) {
+                    current_ptr[i] = (double) i;
+            });
 
             return stdexec::just(current);
         }
 
         return stdexec::just(nt - 1)
             | stdexec::let_value([=](std::size_t nt_updated) { return do_work(np, nx, nt_updated); })
-            | stdexec::bulk(np, [=, k=k, dt=dt, dx=dx, nx=nx, np=np](std::size_t i, auto current) { 
+            | stdexec::bulk(np, [&, k=k, dt=dt, dx=dx, nx=nx, np=np](std::size_t i, auto const& current) { 
                 std::for_each_n(std::execution::par, counting_iterator(0), nx,
-                [=, next=next, current=current, k= ::k, dt = ::dt, dx = ::dx, i=i](std::size_t j) {
+                [=, next=next](std::size_t j) {
                     std::size_t id = i * nx + j;
                     auto left = idx(id, -1, np * nx);
                     auto right = idx(id, +1, np * nx);

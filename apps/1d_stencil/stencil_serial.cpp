@@ -41,11 +41,8 @@ struct stepper
     typedef std::mdspan<partition, view_1d, std::layout_right> space;
 
     void init_value(auto& data, std::size_t np, std::size_t nx) {
-        for(std::size_t i = 0; i != np; ++i) {
-            double base_value = double(i * nx);
-            for(std::size_t j = 0; j != nx; ++j) {
-                data[i * nx + j] = base_value + double(j);
-            }
+        for(std::size_t i = 0; i != np * nx; ++i) {
+            data[i] = double(i);
         }
     }
 
@@ -84,13 +81,10 @@ struct stepper
         // Actual time step loop
         for (std::size_t t = 0; t != nt; ++t)
         {
-            for(std::size_t i = 0; i < np; ++i) {
-                for (std::size_t j = 0; j < nx; j++) {
-                    std::size_t id = i * nx + j;
-                    auto left = idx(id, -1, size);
-                    auto right = idx(id, +1, size);
-                    next[id] = heat(current[left], current[id], current[right], k, dt, dx);
-                };
+            for(std::size_t i = 0; i < np * nx; ++i) {
+                auto left = idx(i, -1, size);
+                auto right = idx(i, +1, size);
+                next[i] = heat(current[left], current[i], current[right], k, dt, dx);
             }
             std::swap(current, next);
         }
