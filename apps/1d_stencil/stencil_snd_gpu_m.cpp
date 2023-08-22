@@ -24,8 +24,8 @@ struct args_params_t : public argparse::Args
     bool &k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
     double &dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
     double &dx = kwarg("dx", "Local x dimension").set_default(1.0);
-    bool &no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false); 
-    bool &help = kwarg("h, help", "print help").set_default(false);
+    bool &no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false);
+    bool &help = flag("h, help", "print help");
     bool &time = kwarg("t, time", "print time").set_default(true);
 };
 
@@ -63,7 +63,7 @@ struct stepper
         }
 
         if (id == size - 1 && dir == +1) {
-            return (std::size_t) 0; 
+            return (std::size_t) 0;
         }
         assert(id < size);
 
@@ -80,17 +80,17 @@ struct stepper
         auto current_ptr = thrust::raw_pointer_cast(current_vec.data());
         auto next_ptr = thrust::raw_pointer_cast(next_vec.data());
 
-        stdexec::sender auto init = 
+        stdexec::sender auto init =
             stdexec::transfer_just(sch, current_ptr, nx)
-            | stdexec::bulk(np * nx, [&](int i, auto& current_ptr, auto nx) { 
-                current_ptr[i] = (double) i; 
+            | stdexec::bulk(np * nx, [&](int i, auto& current_ptr, auto nx) {
+                current_ptr[i] = (double) i;
             });
         stdexec::sync_wait(std::move(init));
 
         for (std::size_t t = 0; t != nt; ++t) {
             auto sender =
                 stdexec::transfer_just(sch, current_ptr, next_ptr, k, dt, dx, np, nx)
-                | stdexec::bulk(np * nx, [&](int i, auto current_ptr, auto next_ptr, 
+                | stdexec::bulk(np * nx, [&](int i, auto current_ptr, auto next_ptr,
                                         auto k, auto dt, auto dx, auto np, auto nx) {
                     auto left = idx(i, -1, np * nx);
                     auto right = idx(i, +1, np * nx);
@@ -100,7 +100,7 @@ struct stepper
             std::swap(current_ptr, next_ptr);
         }
 
-        return current_vec; 
+        return current_vec;
     }
 };
 
@@ -128,7 +128,7 @@ int benchmark(args_params_t const & args) {
     if (args.results)
     {
         for (std::size_t i = 0; i != np; ++i) {
-            std::cout << "U[" << i << "] = {"; 
+            std::cout << "U[" << i << "] = {";
             for (std::size_t j = 0; j != nx; ++j) {
                 std::cout << solution[i*nx + j] << " ";
             }
@@ -156,5 +156,5 @@ int main(int argc, char* argv[])
 
     benchmark(args);
 
-    return 0; 
+    return 0;
 }

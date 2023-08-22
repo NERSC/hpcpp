@@ -16,8 +16,8 @@ struct args_params_t : public argparse::Args
     bool &k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
     double &dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
     double &dx = kwarg("dx", "Local x dimension").set_default(1.0);
-    bool &no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false); 
-    bool &help = kwarg("h, help", "print help").set_default(false);
+    bool &no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false);
+    bool &help = flag("h, help", "print help");
     bool &time = kwarg("t, time", "print time").set_default(true);
 };
 
@@ -60,7 +60,7 @@ struct stepper
         }
 
         if (id == size - 1 && dir == +1) {
-            return (std::size_t) 0; 
+            return (std::size_t) 0;
         }
         assert(id < size);
 
@@ -113,7 +113,7 @@ int benchmark(args_params_t const & args) {
     if (args.results)
     {
         for (std::size_t i = 0; i != np; ++i) {
-            std::cout << "U[" << i << "] = {"; 
+            std::cout << "U[" << i << "] = {";
             for (std::size_t j = 0; j != nx; ++j) {
                 std::cout << solution[i*nx + j] << " ";
             }
@@ -141,5 +141,5 @@ int main(int argc, char* argv[])
 
     benchmark(args);
 
-    return 0; 
+    return 0;
 }

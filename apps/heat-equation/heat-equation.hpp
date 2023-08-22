@@ -61,8 +61,8 @@ struct heat_params_t : public argparse::Args
     int &nsteps = kwarg("s,nsteps", "total steps in simulation").set_default(100);
     Real_t &alpha = kwarg("a,alpha", "thermal diffusivity").set_default(0.5f);
     Real_t &dt = kwarg("t,dt", "time step").set_default(5.0e-5f);
-    bool &help = kwarg("h, help", "print help").set_default(false);
-    bool &print_grid = kwarg("p,print", "print grids at step 0 and step n");
+    bool &help = flag("h, help", "print help");
+    bool &print_grid = flag("p,print", "print grids at step 0 and step n");
 #if defined (TILING)
     int &ntiles = kwarg("ntiles", "number of parallel tiles").set_default(4);
 #endif // TILING
