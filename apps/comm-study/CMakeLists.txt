@@ -12,7 +12,7 @@ foreach(source_file ${CPP_SOURCES})
     set_source_files_properties(${source_file} PROPERTIES LANGUAGE CXX LINKER_LANGUAGE CXX)
     target_include_directories(${exec_name} PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include ${MDSPAN_INCLUDE_DIR})
 
-    target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS})
+    target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec)
 
     set_target_properties(${exec_name}
         PROPERTIES

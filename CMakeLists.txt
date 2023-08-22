@@ -20,7 +20,7 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/external/")
 
 # Set a default build type if none was specified
-set(NVSTDPAR_BUILD_TYPE "RelWithDebInfo")
+set(NVSTDPAR_BUILD_TYPE "Release")
 
 # set the build type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
@@ -97,7 +97,7 @@ CPMAddPackage(
 )
 
 # need to add appropriate flags for stdexec
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --experimental-stdpar -stdpar=gpu --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdpar=multicore --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread")
 
 ##########################################################################################
 #       Add sub-directories
