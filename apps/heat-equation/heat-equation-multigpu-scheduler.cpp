@@ -104,7 +104,8 @@ int main(int argc, char *argv[])
              });
 
     ex::sync_wait(std::move(heat_eq_init));
-    printGrid(phi_old, ncells+nghosts);
+    if (args.print_grid)
+        printGrid(phi_old, ncells+nghosts);
 
     auto tx = ex::transfer_just(gpu, dx_span, phi_old_span, phi_new_span);
 
@@ -148,8 +149,9 @@ int main(int argc, char *argv[])
 
     auto finalize = ex::then(ex::just(), [&]()
     {
-        // print the final grid
-        printGrid(phi_new, ncells);
+        if (args.print_grid)
+            // print the final grid
+            printGrid(phi_new, ncells);
     });
 
     // end the simulation

@@ -88,10 +88,10 @@ CPMAddPackage(
   NAME stdexec
   GITHUB_REPOSITORY NVIDIA/stdexec
   GIT_TAG main # This will always pull the latest code from the `main` branch. You may also use a specific release version or tag
-  OPTIONS 
+  OPTIONS
     "STDEXEC_ENABLE_CUDA ON"
-    "STDEXEC_BUILD_EXAMPLES OFF" 
-    "STDEXEC_BUILD_TESTS OFF" 
+    "STDEXEC_BUILD_EXAMPLES OFF"
+    "STDEXEC_BUILD_TESTS OFF"
     "STDEXEC_ENABLE_IO_URING_TESTS OFF"
     "BUILD_TESTING OFF"
 )

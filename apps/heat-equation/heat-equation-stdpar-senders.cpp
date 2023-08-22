@@ -110,8 +110,9 @@ int main(int argc, char *argv[])
     })
     | then([&]()
     {
-        // print the initial grid
-        printGrid(grid_old, ncells+nghosts);
+        if (args.print_grid)
+            // print the initial grid
+            printGrid(grid_old, ncells+nghosts);
     });
 
     // start the simulation
@@ -173,8 +174,9 @@ int main(int argc, char *argv[])
 
     sender auto finalize = then(just(), [&]()
     {
-        // print the final grid
-        printGrid(grid_new, ncells);
+        if (args.print_grid)
+            // print the final grid
+            printGrid(grid_new, ncells);
     })
     | then([&]()
     {

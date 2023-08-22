@@ -103,8 +103,9 @@ int main(int argc, char *argv[])
         }
     }
 
-    // print the initial grid
-    printGrid(grid_old, ncells+nghosts);
+    if (args.print_grid)
+        // print the initial grid
+        printGrid(grid_old, ncells+nghosts);
 
     // init simulation time
     Real_t time = 0.0;
@@ -138,8 +139,9 @@ int main(int argc, char *argv[])
                 phi_old(i, j) = phi_new(i-1, j-1);
     }
 
-    // print the final grid
-    printGrid(grid_new, ncells);
+    if (args.print_grid)
+        // print the final grid
+        printGrid(grid_new, ncells);
 
     // delete all memory
     delete[] grid_old;
