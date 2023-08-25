@@ -1,0 +1,34 @@
+name: Format Check
+
+on:
+  pull_request:
+    paths:
+      - '**.cpp'
+      - '**.h'
+      - 'CMakeLists.txt'
+      - '**.cmake'
+
+jobs:
+  check-format:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    
+    - name: Install clang-format
+      run: sudo apt-get install clang-format-10
+
+    - name: Install cmake-format
+      run: pip install cmake-format
+    
+    - name: Check C++ format
+      run: |
+        find . -name '*.cpp' -o -name '*.h' | xargs clang-format-10 -style=file -i
+        git diff --exit-code || (echo "Code was not formatted using clang-format! Please format your code." && exit 1)
+
+    - name: Check CMake format
+      run: |
+        find . -name 'CMakeLists.txt' -o -name '*.cmake' | xargs cmake-format -i
+        git diff --exit-code || (echo "CMake files were not formatted using cmake-format! Please format your files." && exit 1)
+
