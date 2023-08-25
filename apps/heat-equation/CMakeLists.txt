@@ -3,6 +3,13 @@ project(heat-equation LANGUAGES CXX)
 file(GLOB CPP_SOURCES "*.cpp")
 
 foreach(source_file ${CPP_SOURCES})
+  if (NOT STDPAR STREQUAL "gpu")
+    if ("${source_file}" MATCHES ".*scheduler.cpp")
+      message(STATUS "Skipping ${source_file} as stdpar=${STDPAR}")
+      continue()
+    endif()
+  endif()
+
   # get the file name without an extension
   get_filename_component(exec_name ${source_file} NAME_WE)
 
