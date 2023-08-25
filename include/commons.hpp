@@ -12,8 +12,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -27,53 +27,58 @@
 #pragma once
 
 #include <math.h>
-#include <stdlib.h>
 #include <stdint.h>
-#include <vector>
-#include <memory>
-#include <iterator>
-#include <typeinfo>
-#include <type_traits>
+#include <stdlib.h>
+
 #include <algorithm>
-#include <iostream>
-#include <execution>
-#include <chrono>
-#include <numeric>
-#include <span>
 #include <cassert>
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
-#include <chrono>
+#include <execution>
+#include <iostream>
+#include <iterator>
+#include <memory>
+#include <numeric>
+#include <span>
+#include <type_traits>
+#include <typeinfo>
+#include <vector>
 
 #include "counting_iterator.hpp"
 
-
 // get mdpsan 2d indices from 1d index
-#define dim2(x, ms)       int ii = x/ms.extent(1); int ij = x%ms.extent(1);
+#define dim2(x, ms)          \
+  int ii = x / ms.extent(1); \
+  int ij = x % ms.extent(1);
 // get mdspan 3d indices from 1d index
-#define dim3(x, ms)       int ii = x/(ms3.extent(1)*ms.extent(2)); int ij = (x/ms.extent(2))%ms.extent(1); int ik = x%ms.extent(2)
+#define dim3(x, ms)                            \
+  int ii = x / (ms3.extent(1) * ms.extent(2)); \
+  int ij = (x / ms.extent(2)) % ms.extent(1);  \
+  int ik = x % ms.extent(2)
 
 class Timer {
-public:
-    Timer() {
-        start_time_point = std::chrono::high_resolution_clock::now();
-    }
+ public:
+  Timer() { start_time_point = std::chrono::high_resolution_clock::now(); }
 
-    ~Timer() {
-        stop();
-    }
+  ~Timer() { stop(); }
 
-    double stop() {
-        auto end_time_point = std::chrono::high_resolution_clock::now();
-        auto start = std::chrono::time_point_cast<std::chrono::microseconds>(start_time_point).time_since_epoch().count();
-        auto end = std::chrono::time_point_cast<std::chrono::microseconds>(end_time_point).time_since_epoch().count();
-        auto duration = end - start;
-        double ms = duration * 0.001;
-        return ms;
-    }
+  double stop() {
+    auto end_time_point = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::time_point_cast<std::chrono::microseconds>(
+                     start_time_point)
+                     .time_since_epoch()
+                     .count();
+    auto end =
+        std::chrono::time_point_cast<std::chrono::microseconds>(end_time_point)
+            .time_since_epoch()
+            .count();
+    auto duration = end - start;
+    double ms = duration * 0.001;
+    return ms;
+  }
 
-private:
-    std::chrono::time_point<std::chrono::high_resolution_clock> start_time_point;
-    std::chrono::time_point<std::chrono::high_resolution_clock> end_time_point;
+ private:
+  std::chrono::time_point<std::chrono::high_resolution_clock> start_time_point;
+  std::chrono::time_point<std::chrono::high_resolution_clock> end_time_point;
 };
-
