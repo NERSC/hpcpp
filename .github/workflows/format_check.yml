@@ -24,6 +24,7 @@ jobs:
     
     - name: Check C++ format
       run: |
+	clang-format --version
         find . -name '*.cpp' -o -name '*.h' -o -name '*.hpp' -o -name '*.cc' | xargs clang-format -i 
         git diff --exit-code || (echo "Code was not formatted using clang-format! Please format your code." && exit 1)
 

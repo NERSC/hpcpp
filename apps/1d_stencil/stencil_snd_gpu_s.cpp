@@ -15,20 +15,20 @@
 
 // parameters
 struct args_params_t : public argparse::Args {
-  bool &results = kwarg("results", "print generated results (default: false)")
+  bool& results = kwarg("results", "print generated results (default: false)")
                       .set_default(false);
-  std::uint64_t &nx =
+  std::uint64_t& nx =
       kwarg("nx", "Local x dimension (of each partition)").set_default(10);
-  std::uint64_t &nt = kwarg("nt", "Number of time steps").set_default(45);
-  std::uint64_t &np = kwarg("np", "Number of partitions").set_default(10);
-  bool &k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
-  double &dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
-  double &dx = kwarg("dx", "Local x dimension").set_default(1.0);
-  bool &no_header =
+  std::uint64_t& nt = kwarg("nt", "Number of time steps").set_default(45);
+  std::uint64_t& np = kwarg("np", "Number of partitions").set_default(10);
+  bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
+  double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
+  double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
+  bool& no_header =
       kwarg("no-header", "Do not print csv header row (default: false)")
           .set_default(false);
-  bool &help = flag("h, help", "print help");
-  bool &time = kwarg("t, time", "print time").set_default(true);
+  bool& help = flag("h, help", "print help");
+  bool& time = kwarg("t, time", "print time").set_default(true);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -71,7 +71,7 @@ struct stepper {
   }
 
   // do all the work on 'nx' data points for 'nt' time steps
-  space do_work(stdexec::scheduler auto &sch, std::size_t np, std::size_t nx,
+  space do_work(stdexec::scheduler auto& sch, std::size_t np, std::size_t nx,
                 std::size_t nt) {
     std::size_t size = np * nx;
     thrust::device_vector<partition> current_vec(size);
@@ -82,7 +82,7 @@ struct stepper {
 
     stdexec::sender auto init =
         stdexec::transfer_just(sch, current_ptr, nx) |
-        stdexec::bulk(np * nx, [&](int i, auto &current_ptr, auto nx) {
+        stdexec::bulk(np * nx, [&](int i, auto& current_ptr, auto nx) {
           current_ptr[i] = (double)i;
         });
     stdexec::sync_wait(std::move(init));
@@ -107,7 +107,7 @@ struct stepper {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-int benchmark(args_params_t const &args) {
+int benchmark(args_params_t const& args) {
   std::uint64_t np = args.np;  // Number of partitions.
   std::uint64_t nx = args.nx;  // Number of grid points.
   std::uint64_t nt = args.nt;  // Number of steps.
@@ -145,7 +145,7 @@ int benchmark(args_params_t const &args) {
   return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   // parse params
   args_params_t args = argparse::parse<args_params_t>(argc, argv);
   // see if help wanted
