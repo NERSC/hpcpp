@@ -27,7 +27,7 @@ target_include_directories(
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-if ("${STDPAR}" STREQUAL "gpu")
+if("${STDPAR}" STREQUAL "gpu")
   add_executable(stencil_snd_gpu_s stencil_snd_gpu_s.cpp)
   target_link_libraries(stencil_snd_gpu_s stdexec)
   target_include_directories(
