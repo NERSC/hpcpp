@@ -8,7 +8,7 @@
 #include "commons.hpp"
 
 // parameters
-	struct args_params_t : public argparse::Args {
+struct args_params_t : public argparse::Args {
   bool &results = kwarg("results", "print generated results (default: false)")
                       .set_default(false);
   std::uint64_t &nx =
