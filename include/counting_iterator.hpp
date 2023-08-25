@@ -12,8 +12,8 @@
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
  *
- * The above copyright notice and this permission notice shall be included in all
- * copies or substantial portions of the Software.
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
  *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
@@ -25,7 +25,8 @@
  */
 
 //
-// counting_iterator taken from https://github.com/LLNL/LULESH/blob/2.0.2-dev/stdpar/src/lulesh.h#L687
+// counting_iterator taken from
+// https://github.com/LLNL/LULESH/blob/2.0.2-dev/stdpar/src/lulesh.h#L687
 //
 
 #pragma once
@@ -35,37 +36,48 @@
 using Index_t = int32_t;
 
 struct counting_iterator {
-
-private:
+ private:
   using self = counting_iterator;
 
-public:
+ public:
   using value_type = Index_t;
   using difference_type = typename std::make_signed<Index_t>::type;
   using pointer = Index_t*;
   using reference = Index_t&;
   using iterator_category = std::random_access_iterator_tag;
 
-  counting_iterator() : value(0) { }
-  explicit counting_iterator(value_type v) : value(v) { }
+  counting_iterator() : value(0) {}
+  explicit counting_iterator(value_type v) : value(v) {}
 
   value_type operator*() const { return value; }
   value_type operator[](difference_type n) const { return value + n; }
 
-  self& operator++() { ++value; return *this; }
+  self& operator++() {
+    ++value;
+    return *this;
+  }
   self operator++(int) {
     self result{value};
     ++value;
     return result;
   }
-  self& operator--() { --value; return *this; }
+  self& operator--() {
+    --value;
+    return *this;
+  }
   self operator--(int) {
     self result{value};
     --value;
     return result;
   }
-  self& operator+=(difference_type n) { value += n; return *this; }
-  self& operator-=(difference_type n) { value -= n; return *this; }
+  self& operator+=(difference_type n) {
+    value += n;
+    return *this;
+  }
+  self& operator-=(difference_type n) {
+    value -= n;
+    return *this;
+  }
 
   friend self operator+(self const& i, difference_type n) {
     return self(i.value + n);
@@ -98,6 +110,7 @@ public:
   friend bool operator>=(self const& x, self const& y) {
     return x.value >= y.value;
   }
-private:
+
+ private:
   value_type value;
 };
