@@ -33,7 +33,7 @@
 //
 // simulation
 //
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   // parse params
   heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
 
@@ -52,12 +52,13 @@ int main(int argc, char *argv[]) {
   // int max_grid_size = args.max_grid_size;
 
   // initialize dx, dy, dz
-  auto *dx = new Real_t[dims];
-  for (int i = 0; i < dims; ++i) dx[i] = 1.0 / (ncells - 1);
+  auto* dx = new Real_t[dims];
+  for (int i = 0; i < dims; ++i)
+    dx[i] = 1.0 / (ncells - 1);
 
   // simulation setup (2D)
-  Real_t *grid_old = new Real_t[(ncells + nghosts) * (ncells + nghosts)];
-  Real_t *grid_new = new Real_t[(ncells) * (ncells)];
+  Real_t* grid_old = new Real_t[(ncells + nghosts) * (ncells + nghosts)];
+  Real_t* grid_new = new Real_t[(ncells) * (ncells)];
 
   auto phi_old = std::mdspan<Real_t, view_2d, std::layout_right>(
       grid_old, ncells + nghosts, ncells + nghosts);

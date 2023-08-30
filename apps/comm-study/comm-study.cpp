@@ -36,14 +36,14 @@ using time_point_t = std::chrono::system_clock::time_point;
 
 // must take in the pointers/vectors by reference
 template <typename P>
-auto work(P &A, P &B, P &Y, int N) {
+auto work(P& A, P& B, P& Y, int N) {
   T sum = 0.0;
 
   // init A and B separately - will it cause an H2D copy?
   sender auto s1 = then(just(),
                         [&] {
                           std::for_each(std::execution::par_unseq, &A[0], &A[N],
-                                        [&](T &ai) { ai = cos(M_PI / 4); });
+                                        [&](T& ai) { ai = cos(M_PI / 4); });
                         })
                    // trigger a D2H here
                    | then([&] {
@@ -61,7 +61,7 @@ auto work(P &A, P &B, P &Y, int N) {
   // will it cause an H2D here?
   sender auto s2 = then(just(), [&] {
     std::for_each(std::execution::par_unseq, &B[0], &B[N],
-                  [&](T &bi) { bi = sin(M_PI / 6); });
+                  [&](T& bi) { bi = sin(M_PI / 6); });
   });
 
   // will s1 and s2 execute in parallel or not?
@@ -72,15 +72,16 @@ auto work(P &A, P &B, P &Y, int N) {
       then(just(),
            [&] {
              std::transform(std::execution::par_unseq, &A[0], &A[N], &B[0],
-                            &A[0], [&](T &ai, T &bi) { return ai + bi; });
+                            &A[0], [&](T& ai, T& bi) { return ai + bi; });
              std::transform(std::execution::par_unseq, &A[0], &A[N], &B[0],
-                            &Y[0], [&](T &ai, T &bi) {
+                            &Y[0], [&](T& ai, T& bi) {
                               return sqrt(pow(ai, 2) + pow(bi, 2)) / (ai + bi);
                             });
            })
       // should trigger a D2H copy of N/3 elements
       | then([&] {
-          for (int i = 0; i < N / 3; i++) sum += Y[i] / N;
+          for (int i = 0; i < N / 3; i++)
+            sum += Y[i] / N;
 
           std::cout << std::endl;
         })
@@ -96,7 +97,7 @@ auto work(P &A, P &B, P &Y, int N) {
   return sum += val;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   constexpr int N = 1e9;
   time_point_t mark = std::chrono::system_clock::now();
   auto es =
@@ -121,9 +122,9 @@ int main(int argc, char *argv[]) {
 #if 1  // 0 if only vectors
 
   // allocate memory - can we just allocate it on device only?
-  T *a = new T[N];
-  T *b = new T[N];
-  T *y = new T[N];
+  T* a = new T[N];
+  T* b = new T[N];
+  T* y = new T[N];
 
   sum = 0;
   mark = std::chrono::system_clock::now();

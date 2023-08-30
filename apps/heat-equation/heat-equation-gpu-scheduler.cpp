@@ -43,7 +43,7 @@ using namespace nvexec;
 //
 // simulation
 //
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   // parse params
   heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
 
@@ -66,7 +66,8 @@ int main(int argc, char *argv[]) {
 
   // initialize dx, dy, dz
   thrust::universal_vector<Real_t> dx(dims);
-  for (int i = 0; i < dims; ++i) dx[i] = 1.0 / (ncells - 1);
+  for (int i = 0; i < dims; ++i)
+    dx[i] = 1.0 / (ncells - 1);
 
   // simulation setup (2D)
   thrust::universal_vector<Real_t> grid_old((ncells + nghosts) *
@@ -107,7 +108,8 @@ int main(int argc, char *argv[]) {
                       });
 
   ex::sync_wait(std::move(heat_eq_init));
-  if (args.print_grid) printGrid(phi_old, ncells + nghosts);
+  if (args.print_grid)
+    printGrid(phi_old, ncells + nghosts);
 
   auto tx = ex::transfer_just(gpu, dx_span, phi_old_span, phi_new_span);
 

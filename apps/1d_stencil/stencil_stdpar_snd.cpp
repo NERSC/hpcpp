@@ -1,4 +1,29 @@
-//  Copyright (c) 2023 Weile Wei
+/*
+ * MIT License
+ *
+ * Copyright (c) 2023 Weile Wei 
+ * Copyright (c) 2023 The Regents of the University of California,
+ * through Lawrence Berkeley National Laboratory (subject to receipt of any
+ * required approvals from the U.S. Dept. of Energy).All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
 //
 // This example provides a stdpar implementation for the 1D stencil code.
 
@@ -12,20 +37,20 @@
 
 // parameters
 struct args_params_t : public argparse::Args {
-  bool &results = kwarg("results", "print generated results (default: false)")
+  bool& results = kwarg("results", "print generated results (default: false)")
                       .set_default(false);
-  std::uint64_t &nx =
+  std::uint64_t& nx =
       kwarg("nx", "Local x dimension (of each partition)").set_default(10);
-  std::uint64_t &nt = kwarg("nt", "Number of time steps").set_default(45);
-  std::uint64_t &np = kwarg("np", "Number of partitions").set_default(10);
-  bool &k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
-  double &dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
-  double &dx = kwarg("dx", "Local x dimension").set_default(1.0);
-  bool &no_header =
+  std::uint64_t& nt = kwarg("nt", "Number of time steps").set_default(45);
+  std::uint64_t& np = kwarg("np", "Number of partitions").set_default(10);
+  bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
+  double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
+  double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
+  bool& no_header =
       kwarg("no-header", "Do not print csv header row (default: false)")
           .set_default(false);
-  bool &help = flag("h, help", "print help");
-  bool &time = kwarg("t, time", "print time").set_default(true);
+  bool& help = flag("h, help", "print help");
+  bool& time = kwarg("t, time", "print time").set_default(true);
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -72,8 +97,8 @@ struct stepper {
     return id + dir;
   }
 
-  partition *current_ptr = nullptr;
-  partition *next_ptr = nullptr;
+  partition* current_ptr = nullptr;
+  partition* next_ptr = nullptr;
   space current;
   space next;
 
@@ -82,8 +107,8 @@ struct stepper {
       -> any_space_sender {
     if (nt == 0) {
       std::size_t size = np * nx;
-      partition *current_ptr = new partition[size];
-      partition *next_ptr = new partition[size];
+      partition* current_ptr = new partition[size];
+      partition* next_ptr = new partition[size];
       current = space(current_ptr, size);
       next = space(next_ptr, size);
 
@@ -100,7 +125,7 @@ struct stepper {
            }) |
            stdexec::bulk(np,
                          [&, k = k, dt = dt, dx = dx, nx = nx, np = np](
-                             std::size_t i, auto const &current) {
+                             std::size_t i, auto const& current) {
                            std::for_each_n(
                                std::execution::par, counting_iterator(0), nx,
                                [=, next = next](std::size_t j) {
@@ -120,7 +145,7 @@ struct stepper {
 };
 
 ///////////////////////////////////////////////////////////////////////////////
-int benchmark(args_params_t const &args) {
+int benchmark(args_params_t const& args) {
   std::uint64_t np = args.np;  // Number of partitions.
   std::uint64_t nx = args.nx;  // Number of grid points.
   std::uint64_t nt = args.nt;  // Number of steps.
@@ -164,7 +189,7 @@ int benchmark(args_params_t const &args) {
   return 0;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   // parse params
   args_params_t args = argparse::parse<args_params_t>(argc, argv);
   // see if help wanted

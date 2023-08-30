@@ -53,7 +53,7 @@ int main() {
   // int i3 = i%ms3.extent(2); return std::make_tuple(i1, i2, i3);};
 
   std::for_each(std::execution::par_unseq, ms2.data_handle(),
-                ms2.data_handle() + ms2.size(), [=](int &i) {
+                ms2.data_handle() + ms2.size(), [=](int& i) {
                   auto global_idx = std::distance(ms2.data_handle(), &i);
                   dim2(global_idx, ms2);
                   // auto [i1, i2] = dim2(global_idx);
@@ -63,7 +63,7 @@ int main() {
   std::cout << std::endl << std::endl;
 
   std::for_each(std::execution::par_unseq, ms2.data_handle(),
-                ms2.data_handle() + ms2.size(), [=](int &i) {
+                ms2.data_handle() + ms2.size(), [=](int& i) {
                   auto global_idx = std::distance(ms2.data_handle(), &i);
                   dim3(global_idx, ms3);
                   // auto [i1, i2, i3] = dim3(global_idx);
