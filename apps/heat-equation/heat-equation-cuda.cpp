@@ -29,6 +29,7 @@
  */
 
 #include <cuda_runtime.h>
+
 #include "heat-equation.hpp"
 
 using namespace std;
@@ -36,34 +37,31 @@ using namespace std;
 // array to store PTM masses
 __constant__ Real_t dx[2];
 
-#define cudaErrorCheck(ans)                   check((ans), __FILE__, __LINE__)
+#define cudaErrorCheck(ans) check((ans), __FILE__, __LINE__)
 
 // error checking function
 template <typename T>
-static inline void check(T result, const char *const file, const int line, bool is_fatal = true)
-{
-    if (result != cudaSuccess)
-    {
-        std::cerr << "CUDA error at " << file << ":" << line << std::endl;
-        std::cerr << cudaGetErrorString(result) << std::endl;
+static inline void check(T result, const char *const file, const int line,
+                         bool is_fatal = true) {
+  if (result != cudaSuccess) {
+    std::cerr << "CUDA error at " << file << ":" << line << std::endl;
+    std::cerr << cudaGetErrorString(result) << std::endl;
 
-        if (is_fatal)
-            exit(result);
-    }
+    if (is_fatal) exit(result);
+  }
 }
 
 //
 // initialize grid kernel
 //
-template<typename T>
-__global__ void initialize(T *phi, int ncells, int ghost_cells)
-{
+template <typename T>
+__global__ void initialize(T *phi, int ncells, int ghost_cells) {
   int ind = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
   int phi_old_extent = ncells + d_nghosts;
   int gsize = ncells * ncells;
 
-  for (; ind < gsize ; ind += blockDim.x * gridDim.x) {
+  for (; ind < gsize; ind += blockDim.x * gridDim.x) {
     int i = 1 + (ind / ncells);
     int j = 1 + (ind % ncells);
 
@@ -83,7 +81,6 @@ __global__ void initialize(T *phi, int ncells, int ghost_cells)
 //
 template <typename T>
 __global__ void fillBoundary(T *phi_old, int ncells, int ghost_cells) {
-
   int pos = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
   int phi_old_extent = ncells + d_nghosts;
@@ -96,12 +93,12 @@ __global__ void fillBoundary(T *phi_old, int ncells, int ghost_cells) {
     phi_old[i] = phi_old[i + (ghost_cells * len)];
 
     phi_old[i + (len * (len - ghost_cells))] =
-      phi_old[i + (len * (len - ghost_cells - 1))];
+        phi_old[i + (len * (len - ghost_cells - 1))];
 
     phi_old[i * len] = phi_old[(ghost_cells * len) + i];
 
     phi_old[(len - ghost_cells) + (len * i)] =
-      phi_old[(len - ghost_cells - 1) + (len * i)];
+        phi_old[(len - ghost_cells - 1) + (len * i)];
   }
 }
 
@@ -109,31 +106,31 @@ __global__ void fillBoundary(T *phi_old, int ncells, int ghost_cells) {
 // jacobi 2d stencil kernel
 //
 template <typename T>
-__global__ void jacobi(T *phi_old, T* phi_new, int ncells, Real_t alpha, Real_t dt) {
-
+__global__ void jacobi(T *phi_old, T *phi_new, int ncells, Real_t alpha,
+                       Real_t dt) {
   int pos = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
   int phi_old_extent = ncells + d_nghosts;
   int gsize = ncells * ncells;
 
-  for (; pos < gsize ; pos += blockDim.x * gridDim.x) {
-
+  for (; pos < gsize; pos += blockDim.x * gridDim.x) {
     int i = 1 + (pos / ncells);
     int j = 1 + (pos % ncells);
 
     // Jacobi iteration
     phi_new[(i - 1) * ncells + j - 1] =
-        phi_old[(i)*phi_old_extent + j] + alpha * dt *
+        phi_old[(i)*phi_old_extent + j] +
+        alpha * dt *
 
-        ((phi_old[(i + 1) * phi_old_extent + j] -
-        2.0 * phi_old[(i)* phi_old_extent + j] +
-        phi_old[(i - 1) * phi_old_extent + j]) /
-        (dx[0] * dx[0]) +
+            ((phi_old[(i + 1) * phi_old_extent + j] -
+              2.0 * phi_old[(i)*phi_old_extent + j] +
+              phi_old[(i - 1) * phi_old_extent + j]) /
+                 (dx[0] * dx[0]) +
 
-        (phi_old[(i) * phi_old_extent + j + 1] -
-        2.0 * phi_old[(i) * phi_old_extent + j] +
-        phi_old[(i) * phi_old_extent + j - 1]) /
-        (dx[1] * dx[1]));
+             (phi_old[(i)*phi_old_extent + j + 1] -
+              2.0 * phi_old[(i)*phi_old_extent + j] +
+              phi_old[(i)*phi_old_extent + j - 1]) /
+                 (dx[1] * dx[1]));
   }
 }
 
@@ -142,13 +139,12 @@ __global__ void jacobi(T *phi_old, T* phi_new, int ncells, Real_t alpha, Real_t 
 //
 template <typename T>
 __global__ void parallelCopy(T *phi_old, T *phi_new, int ncells) {
-
   int pos = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
   int phi_old_extent = ncells + d_nghosts;
   int gsize = ncells * ncells;
 
-  for (; pos < gsize ; pos += blockDim.x * gridDim.x) {
+  for (; pos < gsize; pos += blockDim.x * gridDim.x) {
     int i = 1 + (pos / ncells);
     int j = 1 + (pos % ncells);
     phi_old[(i)*phi_old_extent + j] = phi_new[(i - 1) * ncells + (j - 1)];
@@ -159,13 +155,11 @@ __global__ void parallelCopy(T *phi_old, T *phi_new, int ncells) {
 // main simulation
 //
 int main(int argc, char *argv[]) {
-
   // parse params
   heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
 
   // see if help wanted
   if (args.help) {
-
     args.print();  // prints all variables
     return 0;
   }
@@ -195,11 +189,12 @@ int main(int argc, char *argv[]) {
   Real_t *phi_old = nullptr;
   Real_t *phi_new = nullptr;
 
-  cudaErrorCheck(cudaMalloc(&phi_old, sizeof(Real_t) * ((ncells + nghosts) * (ncells + nghosts))));
+  cudaErrorCheck(cudaMalloc(
+      &phi_old, sizeof(Real_t) * ((ncells + nghosts) * (ncells + nghosts))));
   cudaErrorCheck(cudaMalloc(&phi_new, sizeof(Real_t) * ((ncells) * (ncells))));
 
   // setup grid
-  int blockSize = std::min(1024, gsize); // let's do at most 1024 threads.
+  int blockSize = std::min(1024, gsize);  // let's do at most 1024 threads.
   int nBlocks = (gsize + blockSize - 1) / blockSize;
 
   // initialize grid
@@ -209,19 +204,22 @@ int main(int argc, char *argv[]) {
 
   // print initial grid if needed
   if (args.print_grid) {
-
     // copy initial grid to host
     h_phi = new Real_t[(ncells + nghosts) * (ncells + nghosts)];
-    cudaErrorCheck(cudaMemcpy(h_phi, phi_old, sizeof(Real_t) * (ncells + nghosts) * (ncells + nghosts), cudaMemcpyDeviceToHost));
+    cudaErrorCheck(
+        cudaMemcpy(h_phi, phi_old,
+                   sizeof(Real_t) * (ncells + nghosts) * (ncells + nghosts),
+                   cudaMemcpyDeviceToHost));
 
     printGrid(h_phi, ncells + nghosts);
   }
 
   // evolve the system
   for (auto step = 0; step < nsteps; step++) {
-
-    static int fBblock = std::min(1024, ncells); // let's do at most 1024 threads.
-    static int fBnBlocks = (ncells + fBblock - 1) / fBblock; // fillBoundary blocks
+    static int fBblock =
+        std::min(1024, ncells);  // let's do at most 1024 threads.
+    static int fBnBlocks =
+        (ncells + fBblock - 1) / fBblock;  // fillBoundary blocks
 
     // fillboundary
     fillBoundary<<<fBnBlocks, fBblock>>>(phi_old, ncells, ghost_cells);
@@ -236,13 +234,12 @@ int main(int argc, char *argv[]) {
 
     // update time
     time += dt;
-
   }
 
   // print final grid if needed
   if (args.print_grid) {
-
-    cudaErrorCheck(cudaMemcpy(h_phi, phi_new, sizeof(Real_t) * gsize, cudaMemcpyDeviceToHost));
+    cudaErrorCheck(cudaMemcpy(h_phi, phi_new, sizeof(Real_t) * gsize,
+                              cudaMemcpyDeviceToHost));
     printGrid(h_phi, ncells);
 
     // free host memory
