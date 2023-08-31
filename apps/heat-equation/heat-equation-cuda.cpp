@@ -41,13 +41,14 @@ __constant__ Real_t dx[2];
 
 // error checking function
 template <typename T>
-static inline void check(T result, const char *const file, const int line,
+static inline void check(T result, const char* const file, const int line,
                          bool is_fatal = true) {
   if (result != cudaSuccess) {
     std::cerr << "CUDA error at " << file << ":" << line << std::endl;
     std::cerr << cudaGetErrorString(result) << std::endl;
 
-    if (is_fatal) exit(result);
+    if (is_fatal)
+      exit(result);
   }
 }
 
@@ -55,7 +56,7 @@ static inline void check(T result, const char *const file, const int line,
 // initialize grid kernel
 //
 template <typename T>
-__global__ void initialize(T *phi, int ncells, int ghost_cells) {
+__global__ void initialize(T* phi, int ncells, int ghost_cells) {
   int ind = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
   int phi_old_extent = ncells + d_nghosts;
@@ -80,7 +81,7 @@ __global__ void initialize(T *phi, int ncells, int ghost_cells) {
 // fill boundary kernel
 //
 template <typename T>
-__global__ void fillBoundary(T *phi_old, int ncells, int ghost_cells) {
+__global__ void fillBoundary(T* phi_old, int ncells, int ghost_cells) {
   int pos = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
   int phi_old_extent = ncells + d_nghosts;
@@ -106,7 +107,7 @@ __global__ void fillBoundary(T *phi_old, int ncells, int ghost_cells) {
 // jacobi 2d stencil kernel
 //
 template <typename T>
-__global__ void jacobi(T *phi_old, T *phi_new, int ncells, Real_t alpha,
+__global__ void jacobi(T* phi_old, T* phi_new, int ncells, Real_t alpha,
                        Real_t dt) {
   int pos = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
@@ -138,7 +139,7 @@ __global__ void jacobi(T *phi_old, T *phi_new, int ncells, Real_t alpha,
 // parallelCopy kernel
 //
 template <typename T>
-__global__ void parallelCopy(T *phi_old, T *phi_new, int ncells) {
+__global__ void parallelCopy(T* phi_old, T* phi_new, int ncells) {
   int pos = blockIdx.x * blockDim.x + threadIdx.x;
   int d_nghosts = nghosts;
   int phi_old_extent = ncells + d_nghosts;
@@ -154,7 +155,7 @@ __global__ void parallelCopy(T *phi_old, T *phi_new, int ncells) {
 //
 // main simulation
 //
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   // parse params
   heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
 
@@ -175,7 +176,8 @@ int main(int argc, char *argv[]) {
 
   // initialize dx, dy, dz
   Real_t h_dx[dims];
-  for (int i = 0; i < dims; ++i) h_dx[i] = 1.0 / (ncells - 1);
+  for (int i = 0; i < dims; ++i)
+    h_dx[i] = 1.0 / (ncells - 1);
 
   cudaErrorCheck(cudaMemcpyToSymbol(dx, h_dx, sizeof(Real_t) * dims));
 
@@ -183,11 +185,11 @@ int main(int argc, char *argv[]) {
   int gsize = ncells * ncells;
 
   // host memory for printing
-  Real_t *h_phi = nullptr;
+  Real_t* h_phi = nullptr;
 
   // simulation setup (2D)
-  Real_t *phi_old = nullptr;
-  Real_t *phi_new = nullptr;
+  Real_t* phi_old = nullptr;
+  Real_t* phi_new = nullptr;
 
   cudaErrorCheck(cudaMalloc(
       &phi_old, sizeof(Real_t) * ((ncells + nghosts) * (ncells + nghosts))));
