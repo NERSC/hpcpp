@@ -199,6 +199,8 @@ int main(int argc, char* argv[]) {
   int blockSize = std::min(1024, gsize);  // let's do at most 1024 threads.
   int nBlocks = (gsize + blockSize - 1) / blockSize;
 
+  Timer timer;
+
   // initialize grid
   initialize<<<nBlocks, blockSize>>>(phi_old, ncells, ghost_cells);
 
@@ -236,6 +238,13 @@ int main(int argc, char* argv[]) {
 
     // update time
     time += dt;
+  }
+
+  auto elapsed = timer.stop();
+
+  // print timing
+  if (args.print_time) {
+    std::cout << "Time: " << elapsed << " ms" << std::endl;
   }
 
   // print final grid if needed

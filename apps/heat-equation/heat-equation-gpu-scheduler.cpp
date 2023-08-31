@@ -81,6 +81,8 @@ int main(int argc, char* argv[]) {
   auto phi_old = thrust::raw_pointer_cast(grid_old.data());
   auto phi_new = thrust::raw_pointer_cast(grid_new.data());
 
+  Timer timer;
+
   // scheduler from gpu
   nvexec::stream_context stream_ctx{};
   auto gpu = stream_ctx.get_scheduler();
@@ -157,6 +159,13 @@ int main(int argc, char* argv[]) {
 
     // update the simulation time
     time += dt;
+  }
+
+  auto elapsed = timer.stop();
+
+  // print timing
+  if (args.print_time) {
+    std::cout << "Time: " << elapsed << " ms" << std::endl;
   }
 
   auto finalize = ex::then(ex::just(), [&]() {

@@ -67,6 +67,8 @@ int main(int argc, char* argv[]) {
 
   // initialize phi_old domain: {[-0.5, -0.5], [0.5, 0.5]} -> origin at [0,0]
 
+  Timer timer;
+
   std::for_each_n(std::execution::par_unseq, counting_iterator(0),
                   ncells * ncells, [=](int pos) {
                     int i = 1 + (pos / ncells);
@@ -124,6 +126,13 @@ int main(int argc, char* argv[]) {
                       // copy phi_new to phi_old
                       phi_old(i, j) = phi_new(i - 1, j - 1);
                     });
+  }
+
+  auto elapsed = timer.stop();
+
+  // print timing
+  if (args.print_time) {
+    std::cout << "Time: " << elapsed << " ms" << std::endl;
   }
 
   if (args.print_grid)
