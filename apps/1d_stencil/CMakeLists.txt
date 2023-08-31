@@ -41,6 +41,12 @@ if("${STDPAR}" STREQUAL "gpu")
     stencil_snd_gpu_m
     PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
             ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
+
+  add_executable(stencil_cuda stencil_cuda.cpp)
+  target_include_directories(
+    stencil_cuda
+    PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
+            ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 else()
   message(STATUS "Skipping stencil_snd_gpu_s.cpp as stdpar=${STDPAR}")
   message(STATUS "Skipping stencil_snd_gpu_m.cpp as stdpar=${STDPAR}")

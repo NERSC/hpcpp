@@ -127,7 +127,10 @@ struct stepper {
       std::swap(current_ptr, next_ptr);
     }
 
-    return current_vec;
+    if (nt % 2 == 0) {
+      return current_vec;
+    }
+    return next_vec;
   }
 };
 

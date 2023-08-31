@@ -113,21 +113,25 @@ struct stepper {
     stdexec::sync_wait(std::move(init));
 
     for (std::size_t t = 0; t != nt; ++t) {
-      auto sender = stdexec::transfer_just(sch, current_ptr, next_ptr, k, dt,
-                                           dx, np, nx) |
-                    stdexec::bulk(np * nx, [&](int i, auto current_ptr,
-                                               auto next_ptr, auto k, auto dt,
-                                               auto dx, auto np, auto nx) {
-                      auto left = idx(i, -1, np * nx);
-                      auto right = idx(i, +1, np * nx);
-                      next_ptr[i] = heat(current_ptr[left], current_ptr[i],
-                                         current_ptr[right], k, dt, dx);
-                    });
+      auto sender =
+          stdexec::transfer_just(sch, current_ptr, next_ptr, k, dt, dx, np, nx,
+                                 size) |
+          stdexec::bulk(np * nx,
+                        [&](int i, auto& current_ptr, auto& next_ptr, auto k,
+                            auto dt, auto dx, auto np, auto nx, auto size) {
+                          std::size_t left = (i == 0) ? size - 1 : i - 1;
+                          std::size_t right = (i == size - 1) ? 0 : i + 1;
+                          next_ptr[i] = heat(current_ptr[left], current_ptr[i],
+                                             current_ptr[right], k, dt, dx);
+                        });
       stdexec::sync_wait(std::move(sender));
       std::swap(current_ptr, next_ptr);
     }
 
-    return current_vec;
+    if (nt % 2 == 0) {
+      return current_vec;
+    }
+    return next_vec;
   }
 };
 
