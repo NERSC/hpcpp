@@ -81,6 +81,8 @@ int main(int argc, char* argv[]) {
   auto phi_new =
       std::mdspan<Real_t, view_2d, std::layout_right>(grid_new, ncells, ncells);
 
+  Timer timer;
+
   // scheduler from a thread pool
   exec::static_thread_pool ctx{ntiles};
 
@@ -177,6 +179,13 @@ int main(int argc, char* argv[]) {
         });
 
     sync_wait(std::move(evolve));
+  }
+
+  auto elapsed = timer.stop();
+
+  // print timing
+  if (args.print_time) {
+    std::cout << "Time: " << elapsed << " ms" << std::endl;
   }
 
   sender auto finalize = then(just(),

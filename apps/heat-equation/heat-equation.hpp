@@ -64,6 +64,7 @@ struct heat_params_t : public argparse::Args {
   Real_t& dt = kwarg("t,dt", "time step").set_default(5.0e-5f);
   bool& help = flag("h, help", "print help");
   bool& print_grid = flag("p,print", "print grids at step 0 and step n");
+  bool& print_time = flag("time", "print simulation time");
 #if defined(TILING)
   int& ntiles = kwarg("ntiles", "number of parallel tiles").set_default(4);
 #endif  // TILING               \

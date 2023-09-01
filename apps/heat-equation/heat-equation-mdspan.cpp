@@ -86,6 +86,8 @@ int main(int argc, char* argv[]) {
   auto phi_new =
       std::mdspan<Real_t, view_2d, std::layout_right>(grid_new, ncells, ncells);
 
+  Timer timer;
+
   // initialize phi_old domain: {[-0.5, -0.5], [0.5, 0.5]} -> origin at [0,0]
   for (int i = 1; i < phi_old.extent(0) - 1; ++i) {
     for (int j = 1; j < phi_old.extent(1) - 1; ++j) {
@@ -134,6 +136,13 @@ int main(int argc, char* argv[]) {
       for (auto j = 1; j < phi_old.extent(1) - 1; j++)
         // copy phi_new to phi_old
         phi_old(i, j) = phi_new(i - 1, j - 1);
+  }
+
+  auto elapsed = timer.stop();
+
+  // print timing
+  if (args.print_time) {
+    std::cout << "Time: " << elapsed << " ms" << std::endl;
   }
 
   if (args.print_grid)
