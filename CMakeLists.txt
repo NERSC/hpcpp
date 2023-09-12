@@ -139,8 +139,9 @@ cpmaddpackage(
   "STDEXEC_ENABLE_IO_URING_TESTS OFF"
   "BUILD_TESTING OFF")
 
-#
+# stdpar and openmp
 set(STDPAR_TYPE "gpu")
+set(OMP_TYPE "multicore")
 
 # set the build type
 if(NOT STDPAR)
@@ -155,9 +156,21 @@ if(NOT STDPAR)
   set_property(CACHE STDPAR PROPERTY STRINGS "gpu" "multicore")
 endif()
 
+# set the omp offload type
+if(NOT OMP)
+  message(
+    STATUS
+      "${BoldCyan}Setting -mp=${OMP_TYPE} as none was specified.${ColourReset}")
+  set(OMP
+      "${OMP_TYPE}"
+      CACHE STRING "Choose the OpenMP accelerator." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE OMP PROPERTY STRINGS "multicore" "gpu")
+endif()
+
 # need to add appropriate flags for stdexec
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -stdpar=${STDPAR} --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread"
+    "${CMAKE_CXX_FLAGS} -stdpar=${STDPAR} -mp=${OMP} --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread"
 )
 
 # ##############################################################################

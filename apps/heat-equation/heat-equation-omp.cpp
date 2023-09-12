@@ -28,7 +28,24 @@
  * Simplified 2d heat equation example derived from amrex
  */
 
+#define HEQ_OMP
 #include "heat-equation.hpp"
+
+// fill boundary cells OpenMP
+template <typename T>
+void fill2Dboundaries_omp(T* grid, int len, int nthreads = 1,
+                          int ghost_cells = 1) {
+#pragma omp parallel for num_threads(nthreads)
+  for (int i = ghost_cells; i < len - ghost_cells; i++) {
+    grid[i] = grid[i + (ghost_cells * len)];
+    grid[i + (len * (len - ghost_cells))] =
+        grid[i + (len * (len - ghost_cells - 1))];
+
+    grid[i * len] = grid[(ghost_cells * len) + i];
+    grid[(len - ghost_cells) + (len * i)] =
+        grid[(len - ghost_cells - 1) + (len * i)];
+  }
+}
 
 //
 // simulation
@@ -46,6 +63,7 @@ int main(int argc, char* argv[]) {
   // simulation variables
   int ncells = args.ncells;
   int nsteps = args.nsteps;
+  int nthreads = args.nthreads;
   Real_t dt = args.dt;
   Real_t alpha = args.alpha;
   // future if needed to split in multiple grids
@@ -65,24 +83,25 @@ int main(int argc, char* argv[]) {
   auto phi_new =
       std::mdspan<Real_t, view_2d, std::layout_right>(grid_new, ncells, ncells);
 
-  // initialize phi_old domain: {[-0.5, -0.5], [0.5, 0.5]} -> origin at [0,0]
+  int gsize = ncells * ncells;
 
   Timer timer;
 
-  std::for_each_n(std::execution::par_unseq, counting_iterator(0),
-                  ncells * ncells, [=](int ind) {
-                    int i = 1 + (ind / ncells);
-                    int j = 1 + (ind % ncells);
+  // initialize phi_old domain: {[-0.5, -0.5], [0.5, 0.5]} -> origin at [0,0]
+#pragma omp parallel for num_threads(nthreads)
+  for (int pos = 0; pos < gsize; pos++) {
+    int i = 1 + (pos / ncells);
+    int j = 1 + (pos % ncells);
 
-                    Real_t x = pos(i, ghost_cells, dx[0]);
-                    Real_t y = pos(j, ghost_cells, dx[1]);
+    Real_t x = pos(i, ghost_cells, dx[0]);
+    Real_t y = pos(j, ghost_cells, dx[1]);
 
-                    // L2 distance (r2 from origin)
-                    Real_t r2 = (x * x + y * y) / (0.01);
+    // L2 distance (r2 from origin)
+    Real_t r2 = (x * x + y * y) / (0.01);
 
-                    // phi(x,y) = 1 + exp(-r^2)
-                    phi_old(i, j) = 1 + exp(-r2);
-                  });
+    // phi(x,y) = 1 + exp(-r^2)
+    phi_old(i, j) = 1 + exp(-r2);
+  }
 
   if (args.print_grid)
     // print the initial grid
@@ -94,38 +113,35 @@ int main(int argc, char* argv[]) {
   // evolve the system
   for (auto step = 0; step < nsteps; step++) {
     // fill boundary cells in old_phi
-    fill2Dboundaries(grid_old, ncells + nghosts, ghost_cells);
+    fill2Dboundaries_omp(grid_old, ncells + nghosts, ghost_cells, nthreads);
 
-    // update phi_new with stencil
-    std::for_each_n(std::execution::par_unseq, counting_iterator(0),
-                    ncells * ncells, [=](int ind) {
-                      int i = 1 + (ind / ncells);
-                      int j = 1 + (ind % ncells);
+#pragma omp parallel for num_threads(nthreads)
+    for (int pos = 0; pos < gsize; pos++) {
+      int i = 1 + (pos / ncells);
+      int j = 1 + (pos % ncells);
 
-                      // Jacobi iteration
-                      phi_new(i - 1, j - 1) =
-                          phi_old(i, j) +
-                          alpha * dt *
-                              ((phi_old(i + 1, j) - 2.0 * phi_old(i, j) +
-                                phi_old(i - 1, j)) /
-                                   (dx[0] * dx[0]) +
-                               (phi_old(i, j + 1) - 2.0 * phi_old(i, j) +
-                                phi_old(i, j - 1)) /
-                                   (dx[1] * dx[1]));
-                    });
+      // Jacobi iteration
+      phi_new(i - 1, j - 1) =
+          phi_old(i, j) +
+          alpha * dt *
+              ((phi_old(i + 1, j) - 2.0 * phi_old(i, j) + phi_old(i - 1, j)) /
+                   (dx[0] * dx[0]) +
+               (phi_old(i, j + 1) - 2.0 * phi_old(i, j) + phi_old(i, j - 1)) /
+                   (dx[1] * dx[1]));
+    }
 
     // update the simulation time
     time += dt;
 
     // parallel copy phi_new to phi_old
-    std::for_each_n(std::execution::par_unseq, counting_iterator(0),
-                    ncells * ncells, [=](int ind) {
-                      int i = 1 + (ind / ncells);
-                      int j = 1 + (ind % ncells);
+#pragma omp parallel for num_threads(nthreads)
+    for (int pos = 0; pos < gsize; pos++) {
+      int i = 1 + (pos / ncells);
+      int j = 1 + (pos % ncells);
 
-                      // copy phi_new to phi_old
-                      phi_old(i, j) = phi_new(i - 1, j - 1);
-                    });
+      // copy phi_new to phi_old
+      phi_old(i, j) = phi_new(i - 1, j - 1);
+    }
   }
 
   auto elapsed = timer.stop();
