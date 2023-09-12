@@ -1,5 +1,30 @@
 #!/bin/bash -le
 
+#
+# Read and do the following two steps before running this script:
+#
+#
+# 1. In nvstdpar/CMakeLists.txt, replace the following line:
+#
+# set(CMAKE_CXX_FLAGS
+#    "${CMAKE_CXX_FLAGS} -stdpar=${STDPAR} -mp=${OMP} --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread"
+#
+# with
+#
+# set(CMAKE_CXX_FLAGS
+#    "${CMAKE_CXX_FLAGS} -fopenmp -pthread"
+#
+#
+# 2. In nvstdpar/apps/heat-equation/CMakeLists.txt, replace the following line:
+#
+# target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec)
+#
+# with
+#
+# target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec tbb)
+#
+#
+
 set -x
 
 mkdir -p ${HOME}/repos/nvstdpar/build-gcc
