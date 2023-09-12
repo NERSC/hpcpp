@@ -1,5 +1,11 @@
 #!/bin/bash -le
 
+#
+# Reminder: Revert any changes to nvstdpar/CMakeLists.txt and
+# nvstdpar/apps/heat-equation/CMakeLists.txt that you did
+# for GCC compiler script before running this.
+#
+
 set -x
 
 mkdir -p ${HOME}/repos/nvstdpar/build-nvhpc
