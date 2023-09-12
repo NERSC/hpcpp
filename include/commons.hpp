@@ -59,12 +59,18 @@
 
 class Timer {
  public:
-  Timer() { start_time_point = std::chrono::high_resolution_clock::now(); }
+  Timer() { start(); }
 
   ~Timer() { stop(); }
 
+  void start() { start_time_point = std::chrono::high_resolution_clock::now(); }
+
   double stop() {
-    auto end_time_point = std::chrono::high_resolution_clock::now();
+    end_time_point = std::chrono::high_resolution_clock::now();
+    return duration();
+  }
+
+  double duration() {
     auto start = std::chrono::time_point_cast<std::chrono::microseconds>(
                      start_time_point)
                      .time_since_epoch()

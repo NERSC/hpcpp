@@ -60,6 +60,9 @@ struct heat_params_t : public argparse::Args {
   int& ncells = kwarg("n,ncells", "number of cells on each side of the domain")
                     .set_default(32);
   int& nsteps = kwarg("s,nsteps", "total steps in simulation").set_default(100);
+#if defined(HEQ_OMP)
+  int& nthreads = kwarg("nthreads", "number of threads").set_default(1);
+#endif  // HEQ_OMP
   Real_t& alpha = kwarg("a,alpha", "thermal diffusivity").set_default(0.5f);
   Real_t& dt = kwarg("t,dt", "time step").set_default(5.0e-5f);
   bool& help = flag("h, help", "print help");
@@ -99,12 +102,9 @@ void fill2Dboundaries(T* grid, int len, int ghost_cells = 1) {
                     grid[i] = grid[i + (ghost_cells * len)];
                     grid[i + (len * (len - ghost_cells))] =
                         grid[i + (len * (len - ghost_cells - 1))];
-                  });
 
-  std::for_each_n(std::execution::par_unseq, counting_iterator(ghost_cells),
-                  len - nghosts, [=](auto j) {
-                    grid[j * len] = grid[(ghost_cells * len) + j];
-                    grid[(len - ghost_cells) + (len * j)] =
-                        grid[(len - ghost_cells - 1) + (len * j)];
+                    grid[i * len] = grid[(ghost_cells * len) + i];
+                    grid[(len - ghost_cells) + (len * i)] =
+                        grid[(len - ghost_cells - 1) + (len * i)];
                   });
 }
