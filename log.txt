@@ -1,0 +1,76 @@
++ cd /global/homes/m/mhaseeb/repos/nvstdpar/build/apps/heat-equation
++ ./heat-equation-mdspan -s=50 -n=30000 --time
++ tee md.txt
+Time: 72373.3 ms
++ T=(1 2 4 8 16 32 64)
++ for i in "${T[@]}"
++ export OMP_NUM_THREADS=1
++ OMP_NUM_THREADS=1
++ ./heat-equation-stdpar -s=50 -n=30000 --time
++ tee stdpar-1.txt
+Time: 704823 ms
++ for i in "${T[@]}"
++ export OMP_NUM_THREADS=2
++ OMP_NUM_THREADS=2
++ ./heat-equation-stdpar -s=50 -n=30000 --time
++ tee stdpar-2.txt
+Time: 352537 ms
++ for i in "${T[@]}"
++ export OMP_NUM_THREADS=4
++ OMP_NUM_THREADS=4
++ ./heat-equation-stdpar -s=50 -n=30000 --time
++ tee stdpar-4.txt
+Time: 179607 ms
++ for i in "${T[@]}"
++ export OMP_NUM_THREADS=8
++ OMP_NUM_THREADS=8
++ ./heat-equation-stdpar -s=50 -n=30000 --time
++ tee stdpar-8.txt
+Time: 91341.8 ms
++ for i in "${T[@]}"
++ export OMP_NUM_THREADS=16
++ OMP_NUM_THREADS=16
++ ./heat-equation-stdpar -s=50 -n=30000 --time
++ tee stdpar-16.txt
+Time: 45602.9 ms
++ for i in "${T[@]}"
++ export OMP_NUM_THREADS=32
++ OMP_NUM_THREADS=32
++ ./heat-equation-stdpar -s=50 -n=30000 --time
++ tee stdpar-32.txt
+Time: 24956.7 ms
++ for i in "${T[@]}"
++ export OMP_NUM_THREADS=64
++ OMP_NUM_THREADS=64
++ ./heat-equation-stdpar -s=50 -n=30000 --time
++ tee stdpar-64.txt
+Time: 12437.9 ms
++ unset OMP_NUM_THREADS
++ for i in "${T[@]}"
++ ./heat-equation-omp -s=50 -n=30000 --time --nthreads=1
++ tee omp-1.txt
+Time: 258170 ms
++ for i in "${T[@]}"
++ ./heat-equation-omp -s=50 -n=30000 --time --nthreads=2
++ tee omp-2.txt
+Time: 129542 ms
++ for i in "${T[@]}"
++ ./heat-equation-omp -s=50 -n=30000 --time --nthreads=4
++ tee omp-4.txt
+Time: 65776.1 ms
++ for i in "${T[@]}"
++ ./heat-equation-omp -s=50 -n=30000 --time --nthreads=8
++ tee omp-8.txt
+Time: 32570 ms
++ for i in "${T[@]}"
++ ./heat-equation-omp -s=50 -n=30000 --time --nthreads=16
++ tee omp-16.txt
+Time: 16814.6 ms
++ for i in "${T[@]}"
++ ./heat-equation-omp -s=50 -n=30000 --time --nthreads=32
++ tee omp-32.txt
+Time: 11322.6 ms
++ for i in "${T[@]}"
++ ./heat-equation-omp -s=50 -n=30000 --time --nthreads=64
++ tee omp-64.txt
+Time: 15135.6 ms
