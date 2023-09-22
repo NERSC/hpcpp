@@ -22,5 +22,14 @@ add_subdirectory(mdspan-stdpar)
 message(STATUS "Adding 1d_stencil_stdpar...")
 add_subdirectory(1d_stencil)
 
+# ----------------------------------------------------------------------------------------#
+# Add choleskey demo
+# ----------------------------------------------------------------------------------------#
+message(STATUS "Adding choleskey example...")
+add_subdirectory(choleskey)
+
+# ----------------------------------------------------------------------------------------#
+# Add fft demo
+# ----------------------------------------------------------------------------------------#
 message(STATUS "Adding fft...")
 add_subdirectory(fft)
