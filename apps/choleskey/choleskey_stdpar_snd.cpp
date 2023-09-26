@@ -1,18 +1,17 @@
 // Cholesky Decomposition: stdpar-->sender
-#include "argparse/argparse.hpp"
-#include "commons.hpp"
-
 #include <algorithm>
+#include <exec/any_sender_of.hpp>
 #include <experimental/mdspan>
 #include <iostream>
 #include <numeric>
 #include <stdexec/execution.hpp>
 #include <vector>
+#include "argparse/argparse.hpp"
+#include "commons.hpp"
 #include "exec/static_thread_pool.hpp"
 
 #include "matrixutil.hpp"
-using namespace stdexec;
-using stdexec::sync_wait;
+// using namespace stdexec;
 
 using namespace std;
 
@@ -38,7 +37,7 @@ struct solver {
       return a * b;
     };
 
-    int np = 4;  // default number of parallel sec, will be an option
+    int np = 3;  // default number of parallel sec, will be an option
 
     for (int i = 0; i < matrix_ms.extent(0); i++) {
       for (int j = 0; j <= i; j++) {
@@ -46,28 +45,35 @@ struct solver {
 
         if (j == i)  // summation for diagonals
         {
-          sender auto send1 =
-              begin |
-              bulk(np,
-                   [&](int piece) {
-                     int start = piece * (j + 1) / np;
-                     int size = (j + 1) / np;  // partition size
-                     int remaining = (j + 1) % np;
-                     size += (piece == np - 1) ? remaining : 0;
+          std::vector<T> sum_vec(np + 1);
 
-                     sum = std::transform_reduce(
-                         std::execution::par,
-                         counting_iterator(lower[j][start]),
-                         counting_iterator(lower[j][start]) + size, 0,
-                         std ::plus{}, [=](int val) { return val * val; });
-                   }) |
-              then([&](auto sum) { return sum; });
+          std::cout << "j = " << j << std::endl;
 
-          auto [sum1] = sync_wait(std::move(send1)).value();
-          lower[j][j] = std::sqrt(matrix_ms(i, j) - sum);
+          std::size_t const size = ((j + 1) + (np - 1)) / np;  // partition size
+          stdexec::sender auto send1 =
+              stdexec::bulk(
+                  begin, np,
+                  [&](int piece) {
+                    std::cout << "pcs = " << piece << std::endl;
+                    int start = piece * size;
+                    int end = std::min(j, (int)((piece + 1) * size));
+
+                    sum_vec[piece] = std::transform_reduce(
+                        std::execution::par, counting_iterator(lower[j][start]),
+                        counting_iterator(lower[j][end]), 0, std ::plus{},
+                        [=](int val) { return val * val; });
+                  }) |
+              stdexec::then([&sum_vec]() {
+                return std::reduce(std::execution::par, sum_vec.begin(),
+                                   sum_vec.end());
+              });
+
+          auto [sum1] = stdexec::sync_wait(std::move(send1)).value();
+
+          lower[j][j] = std::sqrt(matrix_ms(i, j) - sum1);
 
         } else {  // Evaluating L(i, j) using L(j, j)
-
+          // TODO
           sum = std::transform_reduce(std::execution::par, lower[j].cbegin(),
                                       lower[j].cbegin() + j, lower[i].cbegin(),
                                       0, std::plus<>(), multiplier_lambda);
@@ -76,6 +82,7 @@ struct solver {
         }
       }
     }
+
     return lower;
   }
 };
