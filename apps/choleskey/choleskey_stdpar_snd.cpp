@@ -46,23 +46,24 @@ struct solver {
 
         if (j == i)  // summation for diagonals
         {
-          auto send1 =
-              just(std::move(sum)) |
+          sender auto send1 =
+              begin |
               bulk(np,
                    [&](int piece) {
-                     int start = piece * (n / 2 + 1) / np;
-                     int size = (n / 2 + 1) / np;  // partition size
-                     int remaining = (n / 2 + 1) % np;
+                     int start = piece * (j + 1) / np;
+                     int size = (j + 1) / np;  // partition size
+                     int remaining = (j + 1) % np;
                      size += (piece == np - 1) ? remaining : 0;
 
                      sum = std::transform_reduce(
-                         std::execution::par, counting_iterator(start),
-                         counting_iterator(start) + size, 0, std ::plus{},
-                         [=](int val) { return val * val; });
+                         std::execution::par,
+                         counting_iterator(lower[j][start]),
+                         counting_iterator(lower[j][start]) + size, 0,
+                         std ::plus{}, [=](int val) { return val * val; });
                    }) |
               then([&](auto sum) { return sum; });
 
-          //auto sum1 = sync_wait(send1).value();
+          auto [sum1] = sync_wait(std::move(send1)).value();
           lower[j][j] = std::sqrt(matrix_ms(i, j) - sum);
 
         } else {  // Evaluating L(i, j) using L(j, j)
