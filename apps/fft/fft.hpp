@@ -62,8 +62,9 @@ using sig_type_t = sig_type;
 
 // parameters
 struct fft_params_t : public argparse::Args {
-  sig_type_t& sig = kwarg("sig", "input signal type(square, sinusoid, sawtooth, triangle, box)").set_default(signal_type::box);
-  int& len = kwarg("n,N", "N-point FFT").set_default(1<<20);
+  sig_type_t& sig = kwarg("sig", "input signal type: square, sinusoid, sawtooth, triangle, box").set_default(sig_type_t::box);
+  int& freq = kwarg("f,freq", "Signal frequency").set_default(1000);
+  int& len = kwarg("n,N", "N-point FFT").set_default(1<<16);
   bool& print_fft = flag("p,print", "print Fourier transformed signal");
 
 #if defined(USE_OMP)
@@ -152,7 +153,7 @@ public:
         break;
       case sig_type::box:
         for (int i = 0; i < N; ++i)
-          y[i] = (i < N / 4 || n > 3 * N / 4) ? 1.0 : 0.0;
+          y[i] = (i < N / 4 || i > 3 * N / 4) ? 1.0 : 0.0;
         break;
       default:
         std::cerr << "FATAL: Unknown signal type. exiting.." << std::endl;

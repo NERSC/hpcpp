@@ -156,6 +156,9 @@ add_subdirectory(mdspan)
 message(STATUS "Adding externals/argparse...")
 add_subdirectory(argparse)
 
+message(STATUS "Adding externals/magic_enum...")
+add_subdirectory(magic_enum)
+
 set(MDSPAN_INCLUDE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/mdspan/include
     CACHE PATH "mdspan include directory")
@@ -163,3 +166,7 @@ set(MDSPAN_INCLUDE_DIR
 set(ARGPARSE_INCLUDE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/argparse/include
     CACHE PATH "argparse include directory")
+
+set(MAGICENUM_INCLUDE_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/magic_enum/include
+    CACHE PATH "magic_enum include directory")
