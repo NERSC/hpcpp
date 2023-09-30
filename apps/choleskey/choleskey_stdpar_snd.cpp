@@ -1,4 +1,32 @@
-// Cholesky Decomposition: stdpar-->sender
+/*
+ * MIT License
+ *
+ * Copyright (c) 2023 Chuanqiu He 
+ * Copyright (c) 2023 Weile Wei 
+ * Copyright (c) 2023 The Regents of the University of California,
+ * through Lawrence Berkeley National Laboratory (subject to receipt of any
+ * required approvals from the U.S. Dept. of Energy).All rights reserved.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+//
+// This example provides a stdexec(senders/receivers) implementation for choleskey decomposition code.
 #include <algorithm>
 #include <exec/any_sender_of.hpp>
 #include <experimental/mdspan>
@@ -20,11 +48,11 @@ struct solver {
   using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
 
   template <typename T>
-  std::vector<std::vector<T>> Cholesky_Decomposition(std::vector<T>& vec,
-                                                     int n) {
+  std::vector<std::vector<T>> Cholesky_Decomposition(std::vector<T>& vec, int n,
+                                                     int np) {
 
     // test here first, scheduler from a thread pool
-    exec::static_thread_pool pool(n);
+    exec::static_thread_pool pool(np);
     stdexec::scheduler auto sch = pool.get_scheduler();
     stdexec::sender auto begin = stdexec::schedule(sch);
 
@@ -37,52 +65,88 @@ struct solver {
       return a * b;
     };
 
-    int np = 3;  // default number of parallel sec, will be an option
-
     for (int i = 0; i < matrix_ms.extent(0); i++) {
       for (int j = 0; j <= i; j++) {
-        T sum = 0;
+        // avoid over parallelize
+        if (j == 0) {
+          np = 1;
+        } else if (j > 0 && np > j) {
+          np = j;
+        }
 
         if (j == i)  // summation for diagonals
         {
-          std::vector<T> sum_vec(np + 1);
 
-          std::cout << "j = " << j << std::endl;
+          if (i == 0 && j == 0) {
+            lower[j][j] = std::sqrt(matrix_ms(i, j));
+          } else {
 
-          std::size_t const size = ((j + 1) + (np - 1)) / np;  // partition size
-          stdexec::sender auto send1 =
-              stdexec::bulk(
-                  begin, np,
-                  [&](int piece) {
-                    std::cout << "pcs = " << piece << std::endl;
-                    int start = piece * size;
-                    int end = std::min(j, (int)((piece + 1) * size));
+            std::vector<T> sum_vec(np);  // sub res for each piece
+            int size = j;  // there are j elements need to be calculated(power)
 
-                    sum_vec[piece] = std::transform_reduce(
-                        std::execution::par, counting_iterator(lower[j][start]),
-                        counting_iterator(lower[j][end]), 0, std ::plus{},
-                        [=](int val) { return val * val; });
-                  }) |
-              stdexec::then([&sum_vec]() {
-                return std::reduce(std::execution::par, sum_vec.begin(),
-                                   sum_vec.end());
-              });
+            stdexec::sender auto send1 =
+                stdexec::bulk(begin, np,
+                              [&](int piece) {
+                                int start = piece * size / np;
+                                int chunk_size = size / np;
+                                int remaining = size % np;
+                                chunk_size += (piece == np - 1) ? remaining : 0;
 
-          auto [sum1] = stdexec::sync_wait(std::move(send1)).value();
+                                sum_vec[piece] = std::transform_reduce(
+                                    std::execution::par,
+                                    counting_iterator(start),
+                                    counting_iterator(start + chunk_size), 0,
+                                    std ::plus{}, [=](int val) {
+                                      return lower[j][val] * lower[j][val];
+                                    });
+                              }) |
+                stdexec::then([&sum_vec]() {
+                  return std::reduce(std::execution::par, sum_vec.begin(),
+                                     sum_vec.end());
+                });
 
-          lower[j][j] = std::sqrt(matrix_ms(i, j) - sum1);
+            auto [sum1] = stdexec::sync_wait(std::move(send1)).value();
 
-        } else {  // Evaluating L(i, j) using L(j, j)
-          // TODO
-          sum = std::transform_reduce(std::execution::par, lower[j].cbegin(),
-                                      lower[j].cbegin() + j, lower[i].cbegin(),
-                                      0, std::plus<>(), multiplier_lambda);
+            lower[j][j] = std::sqrt(matrix_ms(i, j) - sum1);
+          }
 
-          lower[i][j] = (matrix_ms(i, j) - sum) / lower[j][j];
+        } else {
+          // Evaluating L(i, j) using L(j, j)
+
+          if (j == 0) {
+            lower[i][j] = (matrix_ms(i, j)) / lower[j][j];
+          } else {
+
+            std::vector<T> sum_vec(np);  // sub res for each piece
+            int size_nondiag = j;
+
+            stdexec::sender auto send2 =
+                stdexec::bulk(
+                    begin, np,
+                    [&](int piece) {
+                      int start = piece * size_nondiag / np;
+                      int chunk_size = size_nondiag / np;
+                      int remaining = size_nondiag % np;
+                      chunk_size += (piece == np - 1) ? remaining : 0;
+
+                      sum_vec[piece] = std::transform_reduce(
+                          std::execution::par, counting_iterator(start),
+                          counting_iterator(start + chunk_size), 0,
+                          std ::plus{},
+                          [=](int k) { return lower[j][k] * lower[i][k]; });
+                    }) |
+                stdexec::then([&sum_vec]() {
+                  return std::reduce(std::execution::par, sum_vec.begin(),
+                                     sum_vec.end());
+                });
+
+            auto [sum2] = stdexec::sync_wait(std::move(send2)).value();
+
+            lower[i][j] = (matrix_ms(i, j) - sum2) / lower[j][j];
+          }
         }
       }
     }
-
     return lower;
   }
 };
@@ -91,22 +155,18 @@ struct solver {
 int benchmark(args_params_t const& args) {
 
   std::uint64_t nd = args.nd;  // Number of matrix dimension.
-  std::uint64_t np = args.np;  // Number of partitions.
+  std::uint64_t np = args.np;  // Number of parallel partitions.
 
   std::vector<int> inputMatrix = generate_pascal_matrix<int>(nd);
 
   // Create the solver object
   solver solve;
 
-  exec::static_thread_pool pool(np);
-  stdexec::scheduler auto sch = pool.get_scheduler();
-  stdexec::sender auto begin = stdexec::schedule(sch);
-
   // Measure execution time.
   Timer timer;
 
   // start decomposation
-  auto res_matrix = solve.Cholesky_Decomposition(inputMatrix, nd);
+  auto res_matrix = solve.Cholesky_Decomposition(inputMatrix, nd, np);
 
   // Print the final results
   if (args.results) {
