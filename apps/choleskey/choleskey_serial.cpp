@@ -26,7 +26,7 @@
  * SOFTWARE.
  */
 //
-// This example provides a sserial(mdspan) implementation for choleskey decomposition code.
+// This example provides a serial(mdspan) implementation for choleskey decomposition code.
 
 #include <bits/stdc++.h>
 #include <experimental/mdspan>
