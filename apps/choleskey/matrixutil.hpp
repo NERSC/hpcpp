@@ -35,7 +35,7 @@ struct args_params_t : public argparse::Args {
   std::uint64_t& nd =
       kwarg("nd", "Number of input(positive definition) matrix dimension(<=18)")
           .set_default(10);
-
+  std::uint64_t& np = kwarg("np", "Number of partitions").set_default(4);
   bool& help = flag("h, help", "print help");
   bool& time = kwarg("t, time", "print time").set_default(true);
 };
