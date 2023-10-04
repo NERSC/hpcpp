@@ -28,7 +28,6 @@
 //
 // This example provides a stdexec(senders/receivers) implementation for choleskey decomposition code.
 #include <algorithm>
-#include <exec/any_sender_of.hpp>
 #include <experimental/mdspan>
 #include <iostream>
 #include <numeric>
@@ -39,7 +38,6 @@
 #include "exec/static_thread_pool.hpp"
 
 #include "matrixutil.hpp"
-// using namespace stdexec;
 
 using namespace std;
 
@@ -117,7 +115,7 @@ struct solver {
             lower[i][j] = (matrix_ms(i, j)) / lower[j][j];
           } else {
 
-            std::vector<T> sum_vec(np);  // sub res for each piece
+            std::vector<T> sum_vec(np);  // sub_result for each par piece
             int size_nondiag = j;
 
             stdexec::sender auto send2 =
