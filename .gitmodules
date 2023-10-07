@@ -1,9 +1,6 @@
 [submodule "externals/mdspan"]
 	path = externals/mdspan
 	url = https://github.com/kokkos/mdspan
-[submodule "externals/argparse"]
-	path = externals/argparse
-	url = https://github.com/mhaseeb123/argparse
 [submodule "externals/magic_enum"]
 	path = externals/magic_enum
 	url = https://github.com/mhaseeb123/magic_enum
