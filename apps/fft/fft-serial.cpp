@@ -33,14 +33,12 @@
 //
 // simulation
 //
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     // parse params
     fft_params_t args = argparse::parse<fft_params_t>(argc, argv);
 
     // see if help wanted
-    if (args.help)
-    {
+    if (args.help) {
         args.print();  // prints all variables
         return 0;
     }
@@ -60,8 +58,7 @@ int main(int argc, char* argv[])
 
     sig_t x_n(N, sig_type);
 
-    if (!isPowOf2(N))
-    {
+    if (!isPowOf2(N)) {
         N = ceilPowOf2(N);
         std::cout << "log_2(N) != integer. Padding zeros for N = " << N << std::endl;
 
@@ -70,8 +67,7 @@ int main(int argc, char* argv[])
 
     sig_t y_n(x_n);
 
-    if (print_sig)
-    {
+    if (print_sig) {
         std::cout << std::endl << "x[n] = ";
         x_n.printSignal();
         std::cout << std::endl;
@@ -80,40 +76,36 @@ int main(int argc, char* argv[])
     // niterations
     int niters = ilog2(N);
 
-    std::function<void(data_t *, int, const int)> fft = [&](data_t *x, int lN, const int N)
-    {
-        int stride = N/lN;
+    std::function<void(data_t*, int, const int)> fft = [&](data_t* x, int lN, const int N) {
+        int stride = N / lN;
 
-        if (lN == 2)
-        {
-            auto x_0 = x[0] + x[1]* WNk(N, 0);
-            x[1] = x[0] - x[1]* WNk(N, 0);
+        if (lN == 2) {
+            auto x_0 = x[0] + x[1] * WNk(N, 0);
+            x[1] = x[0] - x[1] * WNk(N, 0);
             x[0] = x_0;
             return;
         }
 
         // vectors for left and right
-        std::vector<data_t> e(lN/2);
-        std::vector<data_t> o(lN/2);
+        std::vector<data_t> e(lN / 2);
+        std::vector<data_t> o(lN / 2);
 
         // copy data into vectors
-        for (auto k = 0; k < lN/2; k++)
-        {
-            e[k] = x[2*k];
-            o[k] = x[2*k+1];
+        for (auto k = 0; k < lN / 2; k++) {
+            e[k] = x[2 * k];
+            o[k] = x[2 * k + 1];
         }
 
         // compute N/2 pt FFT on even
-        fft(e.data(), lN/2, N);
+        fft(e.data(), lN / 2, N);
 
         // compute N/2 pt FFT on odd
-        fft(o.data(), lN/2, N);
+        fft(o.data(), lN / 2, N);
 
         // combine even and odd FFTs
-        for (int k = 0; k < lN/2; k++)
-        {
+        for (int k = 0; k < lN / 2; k++) {
             x[k] = e[k] + o[k] * WNk(N, k * stride);
-            x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
+            x[k + lN / 2] = e[k] - o[k] * WNk(N, k * stride);
         }
 
         return;
@@ -122,8 +114,7 @@ int main(int argc, char* argv[])
     // fft radix-2 algorithm with senders
     fft(y_n.data(), N, N);
 
-    if (print_sig)
-    {
+    if (print_sig) {
         std::cout << "X[k] = ";
         y_n.printSignal();
         std::cout << std::endl;
