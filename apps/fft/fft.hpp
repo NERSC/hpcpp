@@ -30,130 +30,138 @@
 
 #pragma once
 
-#include <experimental/mdspan>
+#include <bit>
 #include <complex>
+#include <functional>
+#include <experimental/mdspan>
+#include <exec/any_sender_of.hpp>
+#include <exec/static_thread_pool.hpp>
+#include <stdexec/execution.hpp>
 
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
 
+namespace ex = stdexec;
 using namespace std::complex_literals;
 
 // data type
 using Real_t = double;
 using data_t = std::complex<Real_t>;
 
-// number of dimensions
-constexpr int dims = 1;
-
-// 1D view
-using view_1d = std::extents<int, std::dynamic_extent>;
-
-// 2D view
-using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
-
-// 3D view
-using view_3d = std::extents<int, std::dynamic_extent, std::dynamic_extent,
-                             std::dynamic_extent>;
-
-enum class fft_type { fftw, cufft };
 enum class sig_type { square, sinusoid, sawtooth, triangle, sinc, box };
-
 using sig_type_t = sig_type;
+
+// fft radix
+constexpr int radix = 2;
 
 // parameters
 struct fft_params_t : public argparse::Args {
   sig_type_t& sig = kwarg("sig", "input signal type: square, sinusoid, sawtooth, triangle, box").set_default(sig_type_t::box);
-  int& freq = kwarg("f,freq", "Signal frequency").set_default(1000);
-  int& len = kwarg("n,N", "N-point FFT").set_default(1<<16);
-  bool& print_fft = flag("p,print", "print Fourier transformed signal");
+  int& freq = kwarg("f,freq", "Signal frequency").set_default(1024);
+  int& N = kwarg("N", "N-point FFT").set_default(1024);
+  bool& print_sig = flag("p,print", "print x[n] and X(k)");
 
 #if defined(USE_OMP)
   int& nthreads = kwarg("nthreads", "number of threads").set_default(1);
 #endif  // USE_OMP
 
   bool& help = flag("h, help", "print help");
-  bool& print_time = flag("t,time", "print transform time");
+  bool& print_time = flag("t,time", "print fft time");
 };
 
-void printSignal(data_t* sig, int N) {
-  std::cout << std::fixed << std::setprecision(1);
+inline bool isPowOf2(long long int x) {
+  return !(x == 0) && !(x & (x - 1));
+}
 
-  for (int i = 0; i < N; ++i)
-    std::cout << sig[i] << " ";
+template <typename T>
+void printVec(T &vec, int len)
+{
+    std::cout << "[ ";
+    for (int i = 0; i < len; i++)
+      std::cout << vec[i] << " ";
 
-  std::cout << std::endl;
+    std::cout << "]" << std::endl;
+}
+
+inline std::complex<Real_t> WNk(int N, int k)
+{
+    return std::complex<Real_t>(exp(-2*M_PI*1/N*k*1i));
+}
+
+inline int ceilPowOf2(unsigned int v)
+{
+  return static_cast<int>(std::bit_ceil(v));
+}
+
+inline int ilog2(uint32_t x)
+{
+    return static_cast<int>(log2(x));
 }
 
 class signal
 {
 public:
 
-  signal()
-  {
-    this->N = 1e3;
-    t.resize(this->N);
-    y.resize(this->N);
-    dt = 1.0 / this->N;
-  }
-
-  signal(int _N)
-  {
-    if (_N <= 0)
-    {
-      std::cerr << "FATAL: N must be greater than 0. exiting.." << std::endl;
-      exit(1);
-    }
-    this->N = _N;
-    t.resize(this->N);
-    y.resize(this->N);
-    dt = 1.0 / this->N;
-  }
-
-  signal(int N, sig_type type=sig_type::box)
+  signal() = default;
+  signal(int N)
   {
     if (N <= 0)
     {
       std::cerr << "FATAL: N must be greater than 0. exiting.." << std::endl;
       exit(1);
     }
-
-    this->N = N;
-    t.resize(N);
-    y.resize(N);
-    dt = 1.0 / N;
-    signalGenerator(N, type);
+    y.reserve(ceilPowOf2(N));
   }
 
-  void signalGenerator(int N, sig_type type=sig_type::box)
+  signal(signal &rhs)
   {
-    int interval = 1/N;
-    std::vector<Real_t> t(N);
+    y = rhs.y;
+  }
+  signal(std::vector<data_t> &in)
+  {
+    y = std::move(in);
+  }
+
+  signal(int N, sig_type type)
+  {
+    if (N <= 0)
+    {
+      std::cerr << "FATAL: N must be greater than 0. exiting.." << std::endl;
+      exit(1);
+    }
+    y.reserve(ceilPowOf2(N));
+    signalGenerator(type);
+  }
+
+  void signalGenerator(sig_type type=sig_type::box)
+  {
+    int N = y.size();
 
     switch (type) {
       case sig_type::square:
-        for (int i = 0; i < N; ++i)
-          y[i] = (i < N / 4 || i > 3 * N/4) ? 1.0 : -1.0;
+        for (int n = 0; n < N; ++n)
+          y[n] = (n < N / 4 || n > 3 * N/4) ? 1.0 : -1.0;
         break;
       case sig_type::sinusoid:
-        for (int i = 0; i < N; ++i)
-          y[i] = std::sin(2.0 * M_PI * i / N);
+        for (int n = 0; n < N; ++n)
+          y[n] = std::sin(2.0 * M_PI * n / N);
         break;
       case sig_type::sawtooth:
-        for (int i = 0; i < N; ++i)
-          y[i] = 2.0 * (i / N) - 1.0;
+        for (int n = 0; n < N; ++n)
+          y[n] = 2.0 * (n / N) - 1.0;
         break;
       case sig_type::triangle:
-        for (int i = 0; i < N; ++i)
-          y[i] = 2.0 * std::abs(2.0 * (i / N) - 1.0) - 1.0;
+        for (int n = 0; n < N; ++n)
+          y[n] = 2.0 * std::abs(2.0 * (n / N) - 1.0) - 1.0;
         break;
       case sig_type::sinc:
           y[0] = 1.0;
-        for (int i = 1; i < N; ++i)
-          y[i] = std::sin(2.0 * M_PI * i / N) / (2.0 * M_PI * i / N);
+        for (int n = 1; n < N; ++n)
+          y[n] = std::sin(2.0 * M_PI * n / N) / (2.0 * M_PI * n / N);
         break;
       case sig_type::box:
-        for (int i = 0; i < N; ++i)
-          y[i] = (i < N / 4 || i > 3 * N / 4) ? 1.0 : 0.0;
+        for (int n = 0; n < N; ++n)
+          y[n] = (n < N / 4 || n > 3 * N / 4) ? 1.0 : 0.0;
         break;
       default:
         std::cerr << "FATAL: Unknown signal type. exiting.." << std::endl;
@@ -164,14 +172,40 @@ public:
   ~signal()
   {
     y.clear();
-    t.clear();
+  }
+
+  data_t *data() { return y.data(); }
+  int len() { return y.size(); }
+
+  void resize(int N)
+  {
+    if (N != y.size())
+      y.resize(N, 0);
+  }
+
+  data_t &operator[](int n)
+  {
+    return y[n];
+  }
+
+  data_t &operator()(int n)
+  {
+    return y[n];
+  }
+
+  void printSignal() {
+    std::cout << std::fixed << std::setprecision(2);
+
+    std::cout << "[ ";
+    for (auto &el : y)
+      std::cout << el << " ";
+
+    std::cout << "]" << std::endl;
   }
 
 private:
-  int N;
-  Real_t dt;
-  // time axis
-  std::vector<Real_t> t;
-  // y(t) axis
-  std::vector<Real_t> y;
+  // y[n]
+  std::vector<data_t> y;
 };
+
+using sig_t = signal;
