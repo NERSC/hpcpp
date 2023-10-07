@@ -107,10 +107,11 @@ public:
   {
     if (N <= 0)
     {
-      std::cerr << "FATAL: N must be greater than 0. exiting.." << std::endl;
+      std::cerr << "FATAL: N must be > 0. exiting.." << std::endl;
       exit(1);
     }
     y.reserve(ceilPowOf2(N));
+    y.resize(N);
   }
 
   signal(signal &rhs)
@@ -126,10 +127,11 @@ public:
   {
     if (N <= 0)
     {
-      std::cerr << "FATAL: N must be greater than 0. exiting.." << std::endl;
+      std::cerr << "FATAL: N must be > 0. exiting.." << std::endl;
       exit(1);
     }
     y.reserve(ceilPowOf2(N));
+    y.resize(N);
     signalGenerator(type);
   }
 
