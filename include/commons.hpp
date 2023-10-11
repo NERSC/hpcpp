@@ -30,6 +30,10 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <bit>
+#include <span>
+#include <thread>
+#include <functional>
 #include <algorithm>
 #include <cassert>
 #include <chrono>
@@ -40,7 +44,6 @@
 #include <iterator>
 #include <memory>
 #include <numeric>
-#include <span>
 #include <type_traits>
 #include <typeinfo>
 #include <vector>
