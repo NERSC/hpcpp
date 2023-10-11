@@ -47,27 +47,27 @@ int main(int argc, char* argv[])
 
     // simulation variables
     int N = args.N;
-    sig_type_t sig_type = args.sig;
+    sig_type_t sig_type = getSignal(args.sig);
     int freq = args.freq;
     bool print_sig = args.print_sig;
     bool print_time = args.print_time;
+    bool validate = args.validate;
 
-    // x[n] signal
-    //std::vector<data_t> test_sig{2,1,-1,5,0,3,0,-4};
-    //N = test_sig.size();
-
+    // start the timer
     Timer timer;
 
+    // x[n] signal
     sig_t x_n(N, sig_type);
 
     if (!isPowOf2(N))
     {
         N = ceilPowOf2(N);
-        std::cout << "log_2(N) != integer. Padding zeros for N = " << N << std::endl;
+        std::cout << "INFO: N is not a power of 2. Padding zeros => N = " << N << std::endl;
 
         x_n.resize(N);
     }
 
+    // y[n] = fft(x[n]);
     sig_t y_n(x_n);
 
     if (print_sig)
@@ -80,6 +80,7 @@ int main(int argc, char* argv[])
     // niterations
     int niters = ilog2(N);
 
+    // recursive fft
     std::function<void(data_t *, int, const int)> fft = [&](data_t *x, int lN, const int N)
     {
         int stride = N/lN;
@@ -92,7 +93,7 @@ int main(int argc, char* argv[])
             return;
         }
 
-        // vectors for left and right
+        // vectors for even and odd index elements
         std::vector<data_t> e(lN/2);
         std::vector<data_t> o(lN/2);
 
@@ -119,20 +120,32 @@ int main(int argc, char* argv[])
         return;
     };
 
-    // fft radix-2 algorithm with senders
+    // fft radix-2 algorithm
     fft(y_n.data(), N, N);
 
+    // print the fft(x)
     if (print_sig)
     {
-        std::cout << "X[k] = ";
+        std::cout << "X(k) = ";
         y_n.printSignal();
         std::cout << std::endl;
     }
 
+    // stop timer
     auto elapsed = timer.stop();
 
+    // print the computation time
     if (print_time)
         std::cout << "Elapsed Time: " << elapsed << " ms" << std::endl;
+
+    // validate the recursively computed fft
+    if (validate)
+    {
+        if (x_n.isFFT(y_n))
+            std::cout << "SUCCESS: y[n] == fft(x[n])" << std::endl;
+        else
+            std::cout << "FAILED: y[n] != fft(x[n])" << std::endl;
+    }
 
     return 0;
 }
