@@ -35,16 +35,15 @@
 #include <experimental/mdspan>
 #include <stdexec/execution.hpp>
 #include "exec/static_thread_pool.hpp"
-
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
 
 using namespace std;
 using namespace stdexec;
+using namespace std::complex_literals;
 using stdexec::sync_wait;
 
 namespace ex = stdexec;
-using namespace std::complex_literals;
 
 // 2D view
 using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
@@ -94,10 +93,7 @@ struct fft_params_t : public argparse::Args {
   int& freq = kwarg("f,freq", "Signal frequency").set_default(1024);
   int& N = kwarg("N", "N-point FFT").set_default(1024);
   bool& print_sig = flag("p,print", "print x[n] and X(k)");
-
-#if defined(USE_OMP)
-  int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
-#endif  // USE_OMP
+  int& max_threads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 
   bool& validate = flag("validate", "validate the results via y[k] = WNk * x[n]");
   bool& help = flag("h, help", "print help");

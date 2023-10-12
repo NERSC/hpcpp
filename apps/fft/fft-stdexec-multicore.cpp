@@ -48,6 +48,7 @@ int main(int argc, char* argv[])
     // simulation variables
     int N = args.N;
     sig_type_t sig_type = getSignal(args.sig);
+    int max_threads = args.max_threads;
     //int freq = args.freq;
     bool print_sig = args.print_sig;
     bool print_time = args.print_time;
@@ -80,48 +81,56 @@ int main(int argc, char* argv[])
     // niterations
     int niters = ilog2(N);
 
+    //
     // recursive fft
-    std::function<void(data_t *, int, const int)> fft = [&](data_t *x, int lN, const int N)
+    std::function <void(data_t *, int, const int)> fft = [&](data_t *x, int lN, const int N)->void
     {
-        int stride = N/lN;
+    int stride = N/lN;
 
-        if (lN == 2)
-        {
-            auto x_0 = x[0] + x[1]* WNk(N, 0);
-            x[1] = x[0] - x[1]* WNk(N, 0);
-            x[0] = x_0;
-            return;
-        }
+    if (lN == 2)
+    {
+        auto x_0 = x[0] + x[1]* WNk(N, 0);
+        x[1] = x[0] - x[1]* WNk(N, 0);
+        x[0] = x_0;
+        return;
+    }
 
-        // vectors for even and odd index elements
-        std::vector<data_t> e(lN/2);
-        std::vector<data_t> o(lN/2);
+    // vectors for even and odd index elements
+    std::vector<data_t> e(lN/2);
+    std::vector<data_t> o(lN/2);
 
-        // copy data into vectors
-        for (auto k = 0; k < lN/2; k++)
-        {
+    // scheduler from a thread pool
+    exec::static_thread_pool ctx{std::min(max_threads, lN/2)};
+    scheduler auto sch = ctx.get_scheduler();
+
+    sender auto fork = schedule(sch)
+        | ex::bulk(lN/2, [&](int k){
+            // copy data into vectors
             e[k] = x[2*k];
             o[k] = x[2*k+1];
-        }
+        })
+        | ex::split();
 
-        // compute N/2 pt FFT on even
-        fft(e.data(), lN/2, N);
-
-        // compute N/2 pt FFT on odd
-        fft(o.data(), lN/2, N);
-
-        // combine even and odd FFTs
-        for (int k = 0; k < lN/2; k++)
-        {
+    sender auto merge = when_all(
+        fork | ex::then([=,&e](){
+            // compute N/2 pt FFT on even
+            return fft(e.data(), lN/2, N);
+            }),
+        fork | ex::then([=,&o](){
+            // compute N/2 pt FFT on odd
+            return fft(o.data(), lN/2, N);
+        }))
+        | ex::bulk(lN/2, [&](int k){
+            // combine even and odd FFTs
             x[k] = e[k] + o[k] * WNk(N, k * stride);
             x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
-        }
-
-        return;
+        });
+        ex::sync_wait(merge);
+    return;
     };
 
     // fft radix-2 algorithm
-    fft(y_n.data(), N, N);
+    ex::sync_wait(ex::then(just(), [&](){ return fft(y_n.data(), N, N); }));
 
     // print the fft(x)
     if (print_sig)
