@@ -80,48 +80,11 @@ int main(int argc, char* argv[])
     // niterations
     int niters = ilog2(N);
 
-    // recursive fft
-    std::function<void(data_t *, int, const int)> fft = [&](data_t *x, int lN, const int N)
-    {
-        int stride = N/lN;
-
-        if (lN == 2)
-        {
-            auto x_0 = x[0] + x[1]* WNk(N, 0);
-            x[1] = x[0] - x[1]* WNk(N, 0);
-            x[0] = x_0;
-            return;
-        }
-
-        // vectors for even and odd index elements
-        std::vector<data_t> e(lN/2);
-        std::vector<data_t> o(lN/2);
-
-        // copy data into vectors
-        for (auto k = 0; k < lN/2; k++)
-        {
-            e[k] = x[2*k];
-            o[k] = x[2*k+1];
-        }
-
-        // compute N/2 pt FFT on even
-        fft(e.data(), lN/2, N);
-
-        // compute N/2 pt FFT on odd
-        fft(o.data(), lN/2, N);
-
-        // combine even and odd FFTs
-        for (int k = 0; k < lN/2; k++)
-        {
-            x[k] = e[k] + o[k] * WNk(N, k * stride);
-            x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
-        }
-
-        return;
-    };
-
     // fft radix-2 algorithm
-    fft(y_n.data(), N, N);
+    fft_serial(y_n.data(), N, N);
+
+    // stop timer
+    auto elapsed = timer.stop();
 
     // print the fft(x)
     if (print_sig)
@@ -130,9 +93,6 @@ int main(int argc, char* argv[])
         y_n.printSignal();
         std::cout << std::endl;
     }
-
-    // stop timer
-    auto elapsed = timer.stop();
 
     // print the computation time
     if (print_time)

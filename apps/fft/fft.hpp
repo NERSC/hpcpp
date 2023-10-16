@@ -34,6 +34,7 @@
 
 #include <experimental/mdspan>
 #include <stdexec/execution.hpp>
+#include <exec/any_sender_of.hpp>
 #include "exec/static_thread_pool.hpp"
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
@@ -44,6 +45,10 @@ using namespace std::complex_literals;
 using stdexec::sync_wait;
 
 namespace ex = stdexec;
+
+template <class... Ts>
+using any_sender_of = typename exec::any_receiver_ref<
+    stdexec::completion_signatures<Ts...>>::template any_sender<>;
 
 // 2D view
 using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
@@ -309,3 +314,45 @@ private:
 };
 
 using sig_t = signal;
+
+//
+// serial fft function
+//
+void fft_serial(data_t *x, int lN, const int N)
+{
+    int stride = N/lN;
+
+    if (lN == 2)
+    {
+        auto x_0 = x[0] + x[1]* WNk(N, 0);
+        x[1] = x[0] - x[1]* WNk(N, 0);
+        x[0] = x_0;
+        return;
+    }
+
+    // vectors for even and odd index elements
+    std::vector<data_t> e(lN/2);
+    std::vector<data_t> o(lN/2);
+
+    // copy data into vectors
+    for (auto k = 0; k < lN/2; k++)
+    {
+        e[k] = x[2*k];
+        o[k] = x[2*k+1];
+    }
+
+    // compute N/2 pt FFT on even
+    fft_serial(e.data(), lN/2, N);
+
+    // compute N/2 pt FFT on odd
+    fft_serial(o.data(), lN/2, N);
+
+    // combine even and odd FFTs
+    for (int k = 0; k < lN/2; k++)
+    {
+        x[k] = e[k] + o[k] * WNk(N, k * stride);
+        x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
+    }
+
+    return;
+}

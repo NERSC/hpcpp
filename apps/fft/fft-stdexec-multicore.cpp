@@ -30,6 +30,77 @@
 
 #include "fft.hpp"
 
+using any_void_sender =
+      any_sender_of<stdexec::set_value_t(), stdexec::set_stopped_t(),
+                    stdexec::set_error_t(std::exception_ptr)>;
+
+//
+// recursive multicore fft
+//
+any_void_sender fft_multicore(data_t *x, int lN, const int N, int max_threads)
+{
+    // current merge stride
+    int stride = N/lN;
+
+    // if parallelism > max threads => serial
+    if (stride >= max_threads)
+    {
+        fft_serial(x, lN, N);
+        return just();
+    }
+
+    // base case
+    if (lN == 2)
+    {
+        auto x_0 = x[0] + x[1]* WNk(N, 0);
+        x[1] = x[0] - x[1]* WNk(N, 0);
+        x[0] = x_0;
+        return just();
+    }
+
+    // vectors for even and odd index elements
+    std::vector<data_t> e(lN/2);
+    std::vector<data_t> o(lN/2);
+
+    // thread pool and scheduler
+    exec::static_thread_pool pool{std::min(lN/2, max_threads)};
+    scheduler auto sched = pool.get_scheduler();
+    ex::sender auto begin = schedule(sched);
+
+    // copy even and odd indexes to vectors and split sender
+    ex::sender auto fork = begin
+        | ex::bulk(lN/2, [&](int k){
+            // copy data into vectors
+            e[k] = x[2*k];
+            o[k] = x[2*k+1];
+        })
+        | ex::split();
+
+    // compute forked fft and merge
+    ex::sender auto merge = when_all(
+        fork | ex::then([=,&e](){
+            // compute N/2 pt FFT on even
+            fft_multicore(e.data(), lN/2, N, max_threads);
+        }),
+        fork | ex::then([=,&o](){
+            // compute N/2 pt FFT on odd
+            fft_multicore(o.data(), lN/2, N, max_threads);
+        })
+    )
+    | ex::bulk(lN/2, [&](int k){
+        // combine even and odd FFTs
+        x[k] = e[k] + o[k] * WNk(N, k * stride);
+        x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
+    });
+
+    // wait to complete
+    sync_wait(merge);
+
+    // return void sender
+    return just();
+
+}
+
 //
 // simulation
 //
@@ -47,7 +118,7 @@ int main(int argc, char* argv[])
 
     // simulation variables
     int N = args.N;
-    sig_type_t sig_type = getSignal(args.sig);
+    sig_type_t sig_type = sig_type_t::box;
     int max_threads = args.max_threads;
     //int freq = args.freq;
     bool print_sig = args.print_sig;
@@ -81,56 +152,11 @@ int main(int argc, char* argv[])
     // niterations
     int niters = ilog2(N);
 
-    //
-    // recursive fft
-    std::function <void(data_t *, int, const int)> fft = [&](data_t *x, int lN, const int N)->void
-    {
-    int stride = N/lN;
-
-    if (lN == 2)
-    {
-        auto x_0 = x[0] + x[1]* WNk(N, 0);
-        x[1] = x[0] - x[1]* WNk(N, 0);
-        x[0] = x_0;
-        return;
-    }
-
-    // vectors for even and odd index elements
-    std::vector<data_t> e(lN/2);
-    std::vector<data_t> o(lN/2);
-
-    // scheduler from a thread pool
-    exec::static_thread_pool ctx{std::min(max_threads, lN/2)};
-    scheduler auto sch = ctx.get_scheduler();
-
-    sender auto fork = schedule(sch)
-        | ex::bulk(lN/2, [&](int k){
-            // copy data into vectors
-            e[k] = x[2*k];
-            o[k] = x[2*k+1];
-        })
-        | ex::split();
-
-    sender auto merge = when_all(
-        fork | ex::then([=,&e](){
-            // compute N/2 pt FFT on even
-            return fft(e.data(), lN/2, N);
-            }),
-        fork | ex::then([=,&o](){
-            // compute N/2 pt FFT on odd
-            return fft(o.data(), lN/2, N);
-        }))
-        | ex::bulk(lN/2, [&](int k){
-            // combine even and odd FFTs
-            x[k] = e[k] + o[k] * WNk(N, k * stride);
-            x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
-        });
-        ex::sync_wait(merge);
-    return;
-    };
-
     // fft radix-2 algorithm
-    ex::sync_wait(ex::then(just(), [&](){ return fft(y_n.data(), N, N); }));
+    fft_multicore(y_n.data(), N, N, max_threads);
+
+    // stop timer
+    auto elapsed = timer.stop();
 
     // print the fft(x)
     if (print_sig)
@@ -139,9 +165,6 @@ int main(int argc, char* argv[])
         y_n.printSignal();
         std::cout << std::endl;
     }
-
-    // stop timer
-    auto elapsed = timer.stop();
 
     // print the computation time
     if (print_time)
