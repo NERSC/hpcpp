@@ -37,7 +37,7 @@ using any_void_sender =
 //
 // recursive multicore fft
 //
-any_void_sender fft_multicore(sender auto snd, data_t *x, int lN, const int N, int max_threads)
+any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N, int max_threads)
 {
     // current merge stride
     int stride = N/lN;
