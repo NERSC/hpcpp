@@ -30,41 +30,77 @@
 
 #pragma once
 
-#include <bit>
 #include <complex>
-#include <functional>
-#include <experimental/mdspan>
-#include <exec/any_sender_of.hpp>
-#include <exec/static_thread_pool.hpp>
-#include <stdexec/execution.hpp>
 
+#include <experimental/mdspan>
+#include <stdexec/execution.hpp>
+#include <exec/any_sender_of.hpp>
+#include "exec/static_thread_pool.hpp"
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
 
-namespace ex = stdexec;
+using namespace std;
+using namespace stdexec;
 using namespace std::complex_literals;
+using stdexec::sync_wait;
+
+namespace ex = stdexec;
+
+template <class... Ts>
+using any_sender_of = typename exec::any_receiver_ref<
+    stdexec::completion_signatures<Ts...>>::template any_sender<>;
+
+// 2D view
+using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
 
 // data type
 using Real_t = double;
 using data_t = std::complex<Real_t>;
 
-enum class sig_type { square, sinusoid, sawtooth, triangle, sinc, box };
+// enum for signal types
+enum sig_type { square, sinusoid, sawtooth, triangle, sinc, box };
 using sig_type_t = sig_type;
 
-// fft radix
-constexpr int radix = 2;
+#if defined (__NVCOMPILER)
+std::map<std::string, sig_type_t> sigmap{{"square",sig_type_t::square}, {"sinusoid", sig_type_t::sinusoid}, {"triangle", sig_type_t::sawtooth},
+                           {"triangle", sig_type_t::triangle}, {"sinc", sig_type_t::sinc}, {"box", sig_type_t::box}};
 
-// parameters
+// custom get sig_type_t from string
+sig_type_t getSignal(std::string &sig)
+{
+    if (sigmap.contains(sig))
+    {
+      return sigmap[sig];
+    }
+    else
+    {
+      return (sig_type_t)(-1);
+    }
+}
+
+#else
+
+// if GCC available then just return yourself
+sig_type_t getSignal(sig_type_t &sig) { return sig; }
+
+#endif // _NVCOMPILER
+
+// input arguments
 struct fft_params_t : public argparse::Args {
-  sig_type_t& sig = kwarg("sig", "input signal type: square, sinusoid, sawtooth, triangle, box").set_default(sig_type_t::box);
+
+  // NVC++ is not supported by magic_enum
+#if !defined (__NVCOMPILER)
+  sig_type_t& sig = kwarg("sig", "input signal type: square, sinusoid, sawtooth, triangle, box").set_default(box);
+#else
+  std::string& sig = kwarg("sig", "input signal type: square, sinusoid, sawtooth, triangle, box").set_default("box");
+#endif // !defined (__NVCOMPILER)
+
   int& freq = kwarg("f,freq", "Signal frequency").set_default(1024);
   int& N = kwarg("N", "N-point FFT").set_default(1024);
   bool& print_sig = flag("p,print", "print x[n] and X(k)");
+  int& max_threads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 
-#if defined(USE_OMP)
-  int& nthreads = kwarg("nthreads", "number of threads").set_default(1);
-#endif  // USE_OMP
-
+  bool& validate = flag("validate", "validate the results via y[k] = WNk * x[n]");
   bool& help = flag("h, help", "print help");
   bool& print_time = flag("t,time", "print fft time");
 };
@@ -98,6 +134,14 @@ inline int ilog2(uint32_t x)
     return static_cast<int>(log2(x));
 }
 
+bool complex_compare(data_t a, data_t b, double error = 0.0101)
+{
+  auto r = (fabs(a.real() - b.real()) < error)? true: false;
+  auto i = (fabs(a.imag() - b.imag()) < error)? true: false;
+
+  return (r && i);
+}
+
 class signal
 {
 public:
@@ -107,7 +151,7 @@ public:
   {
     if (N <= 0)
     {
-      std::cerr << "FATAL: N must be > 0. exiting.." << std::endl;
+      std::cerr << "ERROR: N must be > 0. exiting.." << std::endl;
       exit(1);
     }
     y.reserve(ceilPowOf2(N));
@@ -118,55 +162,72 @@ public:
   {
     y = rhs.y;
   }
+
   signal(std::vector<data_t> &in)
   {
     y = std::move(in);
   }
 
-  signal(int N, sig_type type)
+  signal(int N, sig_type type, int threads = std::thread::hardware_concurrency())
   {
     if (N <= 0)
     {
-      std::cerr << "FATAL: N must be > 0. exiting.." << std::endl;
+      std::cerr << "ERROR: N must be > 0. exiting.." << std::endl;
       exit(1);
     }
     y.reserve(ceilPowOf2(N));
     y.resize(N);
-    signalGenerator(type);
+    signalGenerator(type, threads);
   }
 
-  void signalGenerator(sig_type type=sig_type::box)
+  void signalGenerator(sig_type type=sig_type::box, int threads = std::thread::hardware_concurrency())
   {
     int N = y.size();
 
+    // scheduler from a thread pool
+    exec::static_thread_pool ctx{threads};
+    scheduler auto sch = ctx.get_scheduler();
+
+    // start scheduling
+    sender auto start = schedule(sch);
+
+    // generate input signal
     switch (type) {
       case sig_type::square:
-        for (int n = 0; n < N; ++n)
-          y[n] = (n < N / 4 || n > 3 * N/4) ? 1.0 : -1.0;
+        sync_wait(bulk(start, N, [&](int n) {
+          for (int n = 0; n < N; ++n)
+            y[n] = (n < N / 4 || n >= 3 * N/4) ? 1.0 : -1.0;
+        }));
         break;
       case sig_type::sinusoid:
-        for (int n = 0; n < N; ++n)
+        sync_wait(bulk(start, N, [&](int n) {
           y[n] = std::sin(2.0 * M_PI * n / N);
+        }));
         break;
       case sig_type::sawtooth:
-        for (int n = 0; n < N; ++n)
+        sync_wait(bulk(start, N, [&](int n) {
           y[n] = 2.0 * (n / N) - 1.0;
+        }));
         break;
       case sig_type::triangle:
-        for (int n = 0; n < N; ++n)
+        sync_wait(bulk(start, N, [&](int n) {
           y[n] = 2.0 * std::abs(2.0 * (n / N) - 1.0) - 1.0;
+        }));
         break;
       case sig_type::sinc:
           y[0] = 1.0;
-        for (int n = 1; n < N; ++n)
-          y[n] = std::sin(2.0 * M_PI * n / N) / (2.0 * M_PI * n / N);
+          sync_wait(bulk(start, N-1, [&](int n) {
+            y[n+1] = std::sin(2.0 * M_PI * (n+1) / N) / (2.0 * M_PI * (n+1) / N);
+          }));
         break;
       case sig_type::box:
-        for (int n = 0; n < N; ++n)
-          y[n] = (n < N / 4 || n > 3 * N / 4) ? 1.0 : 0.0;
+        sync_wait(bulk(start, N, [&](int n) {
+          y[n] = (n < N / 4 || n >= 3 * N / 4) ? 1.0 : 0.0;
+        }));
         break;
       default:
-        std::cerr << "FATAL: Unknown signal type. exiting.." << std::endl;
+        std::cerr << "ERROR: Unknown input signal type. exiting.." << std::endl;
+        std::cerr << "Run: <FFT_app> --help to see the list of available signals" << std::endl;
         exit(1);
     }
   }
@@ -205,9 +266,93 @@ public:
     std::cout << "]" << std::endl;
   }
 
+  bool isFFT(signal &X, int threads = std::thread::hardware_concurrency())
+  {
+    int N = y.size();
+    bool ret = true;
+
+    data_t *Y = new data_t[N];
+    data_t * M  = new data_t[N*N];
+    auto A = std::mdspan<data_t, view_2d, std::layout_right>(M, N, N);
+
+    // scheduler from a thread pool
+    exec::static_thread_pool ctx{std::min(threads, A.extent(0))};
+    scheduler auto sch = ctx.get_scheduler();
+
+    sender auto test = bulk(schedule(sch), A.extent(0), [&](int i){
+      for (auto j = 0; j < A.extent(1); j++){
+        A(i, j) = WNk(N, i*j);
+      }
+    })
+    // Compute fft
+    | bulk(A.extent(0), [&](int i){
+      for (auto j = 0; j < A.extent(1); j++){
+        Y[i]+= A(i,j) * y[j];
+      }
+    })
+    // compare the computed fft with input
+    | bulk(N, [&](int i){
+      if (!complex_compare(X[i], Y[i]))
+      {
+        std::cout << "y[" << i << "] = " << X[i] << " != WNk*x[" << i << "] = " << Y[i] << std::endl;
+        ret = false;
+      }
+    });
+
+    // let the pipeline run
+    sync_wait(test);
+
+    // delete the memory
+    delete[] M;
+    delete[] Y;
+
+    return ret;
+  }
 private:
   // y[n]
   std::vector<data_t> y;
 };
 
 using sig_t = signal;
+
+//
+// serial fft function
+//
+void fft_serial(data_t *x, int lN, const int N)
+{
+    int stride = N/lN;
+
+    if (lN == 2)
+    {
+        auto x_0 = x[0] + x[1]* WNk(N, 0);
+        x[1] = x[0] - x[1]* WNk(N, 0);
+        x[0] = x_0;
+        return;
+    }
+
+    // vectors for even and odd index elements
+    std::vector<data_t> e(lN/2);
+    std::vector<data_t> o(lN/2);
+
+    // copy data into vectors
+    for (auto k = 0; k < lN/2; k++)
+    {
+        e[k] = x[2*k];
+        o[k] = x[2*k+1];
+    }
+
+    // compute N/2 pt FFT on even
+    fft_serial(e.data(), lN/2, N);
+
+    // compute N/2 pt FFT on odd
+    fft_serial(o.data(), lN/2, N);
+
+    // combine even and odd FFTs
+    for (int k = 0; k < lN/2; k++)
+    {
+        x[k] = e[k] + o[k] * WNk(N, k * stride);
+        x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
+    }
+
+    return;
+}
