@@ -37,7 +37,7 @@ using any_void_sender =
 //
 // recursive multicore fft
 //
-any_void_sender fft_multicore(data_t *x, int lN, const int N, int max_threads)
+any_void_sender fft_multicore(sender auto snd, data_t *x, int lN, const int N, int max_threads)
 {
     // current merge stride
     int stride = N/lN;
@@ -62,29 +62,30 @@ any_void_sender fft_multicore(data_t *x, int lN, const int N, int max_threads)
     std::vector<data_t> e(lN/2);
     std::vector<data_t> o(lN/2);
 
-    // thread pool and scheduler
-    exec::static_thread_pool pool{std::min(lN/2, max_threads)};
-    scheduler auto sched = pool.get_scheduler();
-    ex::sender auto begin = schedule(sched);
-
     // copy even and odd indexes to vectors and split sender
-    ex::sender auto fork = begin
-        | ex::bulk(lN/2, [&](int k){
+    ex::sender auto fork =
+        ex::bulk(snd, lN/2, [&](int k){
             // copy data into vectors
             e[k] = x[2*k];
             o[k] = x[2*k+1];
         })
         | ex::split();
 
+    // local thread pool and scheduler
+    exec::static_thread_pool pool{std::min(lN/2, max_threads)};
+    scheduler auto sched = pool.get_scheduler();
+
     // compute forked fft and merge
     ex::sender auto merge = when_all(
         fork | ex::then([=,&e](){
             // compute N/2 pt FFT on even
-            fft_multicore(e.data(), lN/2, N, max_threads);
+            // WHY: deadlock for N>=64 if `snd` passed directly here instead of local pool or just()
+            fft_multicore(schedule(sched), e.data(), lN/2, N, max_threads);
         }),
         fork | ex::then([=,&o](){
             // compute N/2 pt FFT on odd
-            fft_multicore(o.data(), lN/2, N, max_threads);
+            // WHY: deadlock for N>=64 if `snd` passed directly here instead of local pool
+            fft_multicore(schedule(sched), o.data(), lN/2, N, max_threads);
         })
     )
     | ex::bulk(lN/2, [&](int k){
@@ -94,7 +95,7 @@ any_void_sender fft_multicore(data_t *x, int lN, const int N, int max_threads)
     });
 
     // wait to complete
-    sync_wait(merge);
+    ex::sync_wait(merge);
 
     // return void sender
     return just();
@@ -152,8 +153,12 @@ int main(int argc, char* argv[])
     // niterations
     int niters = ilog2(N);
 
+    // thread pool and scheduler
+    exec::static_thread_pool pool{max_threads};
+    scheduler auto sched = pool.get_scheduler();
+
     // fft radix-2 algorithm
-    fft_multicore(y_n.data(), N, N, max_threads);
+    fft_multicore(schedule(sched), y_n.data(), N, N, max_threads);
 
     // stop timer
     auto elapsed = timer.stop();
