@@ -42,6 +42,9 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     // current merge stride
     int stride = N/lN;
 
+    // to check parallelism
+    //std::cout << "lN = " << lN << ", from tid: " << std::this_thread::get_id() << std::endl;
+
     // if parallelism > max threads => serial
     if (stride >= max_threads)
     {
@@ -65,39 +68,32 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     std::vector<data_t> e(lN/2);
     std::vector<data_t> o(lN/2);
 
-    // copy even and odd indexes to vectors and split sender
-    ex::sender auto fork =
-        ex::bulk(snd, lN/2, [&](int k){
-            // copy data into vectors
-            e[k] = x[2*k];
-            o[k] = x[2*k+1];
-        })
-        | ex::split();
+    // array to use in bulk
+    std::array<data_t *, 2> dat{e.data(), o.data()};
 
     // local thread pool and scheduler
     exec::static_thread_pool pool{std::min(lN/2, max_threads)};
     scheduler auto sched = pool.get_scheduler();
 
-    // compute forked fft and merge
-    ex::sender auto merge = when_all(
-        fork | ex::then([=,&e](){
+    // copy even and odd indexes to vectors and split sender
+    ex::sender auto merge =
+        ex::bulk(snd, lN/2, [&](int k){
+            // copy data into vectors
+            e[k] = x[2*k];
+            o[k] = x[2*k+1];
+        })
+        | ex::bulk(2, [=,&dat](int k){
             // compute N/2 pt FFT on even
 
-            // WHY: deadlock for N>=64 if `snd` here instead of schedule(sched) or just()
             // passing `fork` here results in compiler error (nvc++-Fatal-/path/to/tools/cpp1
             // TERMINATED by signal 11 - NVC++ 23.7 goes in forever loop)
-            fft_multicore(schedule(sched), e.data(), lN/2, N, max_threads);
-        }),
-        fork | ex::then([=,&o](){
-            // compute N/2 pt FFT on odd - same behavior
-            fft_multicore(schedule(sched), o.data(), lN/2, N, max_threads);
+            fft_multicore(schedule(sched), dat[k], lN/2, N, max_threads);
         })
-    )
-    | ex::bulk(lN/2, [&](int k){
-        // combine even and odd FFTs
-        x[k] = e[k] + o[k] * WNk(N, k * stride);
-        x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
-    });
+        | ex::bulk(lN/2, [&](int k){
+            // combine even and odd FFTs
+            x[k] = e[k] + o[k] * WNk(N, k * stride);
+            x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
+        });
 
     // wait to complete
     ex::sync_wait(merge);
