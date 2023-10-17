@@ -13,13 +13,6 @@ target_include_directories(
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-add_executable(stencil_stdpar_snd stencil_stdpar_snd.cpp)
-target_link_libraries(stencil_stdpar_snd stdexec)
-target_include_directories(
-  stencil_stdpar_snd
-  PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
-          ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
-
 add_executable(stencil_stdpar_snd_iter stencil_stdpar_snd_iter.cpp)
 target_link_libraries(stencil_stdpar_snd_iter stdexec)
 target_include_directories(
