@@ -45,6 +45,7 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     // if parallelism > max threads => serial
     if (stride >= max_threads)
     {
+        // TODO: can this be improved? Putting it in ex::then doesn't sync
         fft_serial(x, lN, N);
         return just();
     }
@@ -52,9 +53,11 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     // base case
     if (lN == 2)
     {
+        // TODO: can this be improved? Putting it in ex::then doesn't sync
         auto x_0 = x[0] + x[1]* WNk(N, 0);
         x[1] = x[0] - x[1]* WNk(N, 0);
         x[0] = x_0;
+
         return just();
     }
 
@@ -79,12 +82,14 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     ex::sender auto merge = when_all(
         fork | ex::then([=,&e](){
             // compute N/2 pt FFT on even
-            // WHY: deadlock for N>=64 if `snd` passed directly here instead of local pool or just()
+
+            // WHY: deadlock for N>=64 if `snd` here instead of schedule(sched) or just()
+            // passing `fork` here results in compiler error (nvc++-Fatal-/path/to/tools/cpp1
+            // TERMINATED by signal 11 - NVC++ 23.7 goes in forever loop)
             fft_multicore(schedule(sched), e.data(), lN/2, N, max_threads);
         }),
         fork | ex::then([=,&o](){
-            // compute N/2 pt FFT on odd
-            // WHY: deadlock for N>=64 if `snd` passed directly here instead of local pool
+            // compute N/2 pt FFT on odd - same behavior
             fft_multicore(schedule(sched), o.data(), lN/2, N, max_threads);
         })
     )
