@@ -31,9 +31,16 @@
 #pragma once
 
 #include <experimental/mdspan>
-
+#include <stdexec/execution.hpp>
+#include <exec/static_thread_pool.hpp>
+#include <nvexec/stream_context.cuh>
+#include <nvexec/multi_gpu_context.cuh>
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
+
+namespace ex = stdexec;
+using namespace nvexec;
+using namespace exec;
 
 // data type
 using Real_t = double;
@@ -60,24 +67,23 @@ struct heat_params_t : public argparse::Args {
   int& ncells = kwarg("n,ncells", "number of cells on each side of the domain")
                     .set_default(32);
   int& nsteps = kwarg("s,nsteps", "total steps in simulation").set_default(100);
-#if defined(HEQ_OMP)
-  int& nthreads = kwarg("nthreads", "number of threads").set_default(1);
-#endif  // HEQ_OMP
+
+#if defined(HEQ_OMP) || defined(HEQ_STDEXEC)
+  int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
+#endif  // HEQ_OMP || HEQ_STDEXEC
+
+#if defined(HEQ_STDEXEC)
+  std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu, gpu, multigpu]").set_default("cpu");
+#endif  // HEQ_STDEXEC
+
   Real_t& alpha = kwarg("a,alpha", "thermal diffusivity").set_default(0.5f);
   Real_t& dt = kwarg("t,dt", "time step").set_default(5.0e-5f);
-  bool& help = flag("h, help", "print help");
+  bool& help = flag("h,help", "print help");
   bool& print_grid = flag("p,print", "print grids at step 0 and step n");
   bool& print_time = flag("time", "print simulation time");
-#if defined(TILING)
-  int& ntiles = kwarg("ntiles", "number of parallel tiles").set_default(4);
-#endif  // TILING               \
-        // future use if needed \
-        // int &max_grid_size = kwarg("g, max_grid_size", "size of each box (or
-  // grid)").set_default(32); bool &verbose = kwarg("v, verbose", "verbose
-  // mode").set_default(false); int &plot_int = kwarg("p, plot_int", "how often
-  // to write a plotfile").set_default(-1);
 };
 
+// template printGrid
 template <typename T>
 void printGrid(T* grid, int len) {
   auto view = std::mdspan<T, view_2d, std::layout_right>(grid, len, len);
@@ -108,3 +114,46 @@ void fill2Dboundaries(T* grid, int len, int ghost_cells = 1) {
                         grid[(len - ghost_cells - 1) + (len * i)];
                   });
 }
+
+#if defined (HEQ_STDEXEC)
+
+
+enum sch_type { CPU, GPU, MULTIGPU };
+using sch_type_t = sch_type;
+
+// stdexec scheduler manager
+class heq_sch
+{
+public:
+
+  heq_sch (std::string input)
+  {
+    if (schmap.contains(input))
+    {
+      scheduler = schmap[input];
+    }
+    else
+    {
+      scheduler = sch_type_t(-1);
+    }
+  }
+
+  heq_sch() : scheduler(sch_type_t::CPU) {};
+
+  heq_sch(heq_sch &input)
+  {
+    this->scheduler = input.scheduler;
+  }
+
+  auto operator()()
+  {
+    return scheduler;
+  }
+
+private:
+  sch_type_t scheduler;
+  std::map<std::string, sch_type_t> schmap{{"cpu",sch_type_t::CPU}, {"gpu", sch_type_t::GPU}, {"multigpu", sch_type_t::MULTIGPU}};
+};
+
+using heq_sch_t = heq_sch;
+#endif
