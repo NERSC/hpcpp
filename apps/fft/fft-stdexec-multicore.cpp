@@ -42,6 +42,9 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     // current merge stride
     int stride = N/lN;
 
+    // to check parallelism
+    //std::cout << "lN = " << lN << ", from tid: " << std::this_thread::get_id() << std::endl;
+
     // if parallelism > max threads => serial
     if (stride >= max_threads)
     {
@@ -65,46 +68,38 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     std::vector<data_t> e(lN/2);
     std::vector<data_t> o(lN/2);
 
+    // array to use in bulk
+    std::array<data_t *, 2> dat{e.data(), o.data()};
+
+    // local thread pool and scheduler
+    exec::static_thread_pool pool_loc{std::min(lN/2, max_threads)};
+    ex::sender auto snd_loc = schedule(pool_loc.get_scheduler());
+
     // copy even and odd indexes to vectors and split sender
-    ex::sender auto fork =
+    ex::sender auto merge =
         ex::bulk(snd, lN/2, [&](int k){
             // copy data into vectors
             e[k] = x[2*k];
             o[k] = x[2*k+1];
         })
-        | ex::split();
+        | ex::bulk(2, [=,&dat](int k){
+            // NVC++ 23.1: passing `snd` here results in (nvc++-Fatal-/path/to/tools/cpp1 TERMINATED by signal 11)
+            // NVC++ 23.7 goes in forever loop
 
-    // local thread pool and scheduler
-    exec::static_thread_pool pool{std::min(lN/2, max_threads)};
-    scheduler auto sched = pool.get_scheduler();
-
-    // compute forked fft and merge
-    ex::sender auto merge = when_all(
-        fork | ex::then([=,&e](){
-            // compute N/2 pt FFT on even
-
-            // WHY: deadlock for N>=64 if `snd` here instead of schedule(sched) or just()
-            // passing `fork` here results in compiler error (nvc++-Fatal-/path/to/tools/cpp1
-            // TERMINATED by signal 11 - NVC++ 23.7 goes in forever loop)
-            fft_multicore(schedule(sched), e.data(), lN/2, N, max_threads);
-        }),
-        fork | ex::then([=,&o](){
-            // compute N/2 pt FFT on odd - same behavior
-            fft_multicore(schedule(sched), o.data(), lN/2, N, max_threads);
+            // compute N/2 pt FFT on even and odd in bulk
+            fft_multicore(snd_loc, dat[k], lN/2, N, max_threads);
         })
-    )
-    | ex::bulk(lN/2, [&](int k){
-        // combine even and odd FFTs
-        x[k] = e[k] + o[k] * WNk(N, k * stride);
-        x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
-    });
+        | ex::bulk(lN/2, [&](int k){
+            // combine even and odd FFTs
+            x[k] = e[k] + o[k] * WNk(N, k * stride);
+            x[k+lN/2] = e[k] - o[k] * WNk(N, k * stride);
+        });
 
     // wait to complete
-    ex::sync_wait(merge);
+    ex::sync_wait(std::move(merge));
 
     // return void sender
     return just();
-
 }
 
 //
@@ -130,9 +125,6 @@ int main(int argc, char* argv[])
     bool print_sig = args.print_sig;
     bool print_time = args.print_time;
     bool validate = args.validate;
-
-    // start the timer
-    Timer timer;
 
     // x[n] signal
     sig_t x_n(N, sig_type);
@@ -161,6 +153,9 @@ int main(int argc, char* argv[])
     // thread pool and scheduler
     exec::static_thread_pool pool{max_threads};
     scheduler auto sched = pool.get_scheduler();
+
+    // start the timer here
+    Timer timer;
 
     // fft radix-2 algorithm
     fft_multicore(schedule(sched), y_n.data(), N, N, max_threads);

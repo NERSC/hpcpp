@@ -279,19 +279,19 @@ public:
     exec::static_thread_pool ctx{std::min(threads, A.extent(0))};
     scheduler auto sch = ctx.get_scheduler();
 
-    sender auto test = bulk(schedule(sch), A.extent(0), [&](int i){
+    ex::sender auto test = ex::bulk(schedule(sch), A.extent(0), [&](int i){
       for (auto j = 0; j < A.extent(1); j++){
         A(i, j) = WNk(N, i*j);
       }
     })
     // Compute fft
-    | bulk(A.extent(0), [&](int i){
+    | ex::bulk(A.extent(0), [&](int i){
       for (auto j = 0; j < A.extent(1); j++){
         Y[i]+= A(i,j) * y[j];
       }
     })
     // compare the computed fft with input
-    | bulk(N, [&](int i){
+    | ex::bulk(N, [&](int i){
       if (!complex_compare(X[i], Y[i]))
       {
         std::cout << "y[" << i << "] = " << X[i] << " != WNk*x[" << i << "] = " << Y[i] << std::endl;
@@ -300,7 +300,7 @@ public:
     });
 
     // let the pipeline run
-    sync_wait(test);
+    ex::sync_wait(test);
 
     // delete the memory
     delete[] M;

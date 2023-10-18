@@ -53,9 +53,6 @@ int main(int argc, char* argv[])
     bool print_time = args.print_time;
     bool validate = args.validate;
 
-    // start the timer
-    Timer timer;
-
     // x[n] signal
     sig_t x_n(N, sig_type);
 
@@ -79,6 +76,9 @@ int main(int argc, char* argv[])
 
     // niterations
     int niters = ilog2(N);
+
+    // start the timer
+    Timer timer;
 
     // fft radix-2 algorithm
     fft_serial(y_n.data(), N, N);

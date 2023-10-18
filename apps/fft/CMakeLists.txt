@@ -4,8 +4,8 @@ file(GLOB CPP_SOURCES "*.cpp")
 
 foreach(source_file ${CPP_SOURCES})
   if(NOT STDPAR STREQUAL "gpu")
-    if("${source_file}" MATCHES ".*gpu.*scheduler.*" OR "${source_file}"
-                                                        MATCHES ".*cuda.*")
+    if("${source_file}" MATCHES ".*stdpar.*gpu.*" OR "${source_file}"
+                                                    MATCHES ".*gpu.*stdpar.*")
       message(STATUS "Skipping ${source_file} as stdpar=${STDPAR}")
       continue()
     endif()
