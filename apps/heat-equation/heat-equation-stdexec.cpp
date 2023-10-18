@@ -145,27 +145,24 @@ int main(int argc, char* argv[]) {
   };
 
   // initialize stdexec scheduler
-  heq_sch_t sch(sched);
+  sch_t scheduler = get_sch_enum(sched);
 
   // init timer
   Timer timer;
 
   // launch with appropriate stdexec scheduler
-  switch (sch()) {
-    case sch_type_t::CPU:
+  switch (scheduler) {
+    case sch_t::CPU:
       algorithm(exec::static_thread_pool(nthreads).get_scheduler());
       break;
-    case sch_type_t::GPU:
+    case sch_t::GPU:
       algorithm(nvexec::stream_context().get_scheduler());
       break;
-    case sch_type_t::MULTIGPU:
+    case sch_t::MULTIGPU:
       algorithm(nvexec::multi_gpu_stream_context().get_scheduler());
       break;
     default:
-      std::cerr << "FATAL: " << sched << " is not a stdexec scheduler." << std::endl;
-      std::cerr << "Run: heat-equation-stdexec --help to see the list of available schedulers" << std::endl;
-      std::cerr << "Exiting..." << std::endl;
-      exit(1);
+      throw std::runtime_error("Run: `heat-equation-stdexec --help` to see the list of available schedulers");
   }
 
   auto elapsed = timer.stop();

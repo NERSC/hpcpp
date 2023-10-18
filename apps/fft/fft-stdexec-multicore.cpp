@@ -96,11 +96,10 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
         });
 
     // wait to complete
-    ex::sync_wait(merge);
+    ex::sync_wait(std::move(merge));
 
     // return void sender
     return just();
-
 }
 
 //
@@ -126,9 +125,6 @@ int main(int argc, char* argv[])
     bool print_sig = args.print_sig;
     bool print_time = args.print_time;
     bool validate = args.validate;
-
-    // start the timer
-    Timer timer;
 
     // x[n] signal
     sig_t x_n(N, sig_type);
@@ -157,6 +153,9 @@ int main(int argc, char* argv[])
     // thread pool and scheduler
     exec::static_thread_pool pool{max_threads};
     scheduler auto sched = pool.get_scheduler();
+
+    // start the timer here
+    Timer timer;
 
     // fft radix-2 algorithm
     fft_multicore(schedule(sched), y_n.data(), N, N, max_threads);
