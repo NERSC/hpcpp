@@ -72,8 +72,8 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
     std::array<data_t *, 2> dat{e.data(), o.data()};
 
     // local thread pool and scheduler
-    exec::static_thread_pool pool{std::min(lN/2, max_threads)};
-    scheduler auto sched = pool.get_scheduler();
+    exec::static_thread_pool pool_loc{std::min(lN/2, max_threads)};
+    ex::sender auto snd_loc = schedule(pool_loc.get_scheduler());
 
     // copy even and odd indexes to vectors and split sender
     ex::sender auto merge =
@@ -83,11 +83,11 @@ any_void_sender fft_multicore(sender auto &&snd, data_t *x, int lN, const int N,
             o[k] = x[2*k+1];
         })
         | ex::bulk(2, [=,&dat](int k){
-            // compute N/2 pt FFT on even
+            // NVC++ 23.1: passing `snd` here results in (nvc++-Fatal-/path/to/tools/cpp1 TERMINATED by signal 11)
+            // NVC++ 23.7 goes in forever loop
 
-            // passing `fork` here results in compiler error (nvc++-Fatal-/path/to/tools/cpp1
-            // TERMINATED by signal 11 - NVC++ 23.7 goes in forever loop)
-            fft_multicore(schedule(sched), dat[k], lN/2, N, max_threads);
+            // compute N/2 pt FFT on even and odd in bulk
+            fft_multicore(snd_loc, dat[k], lN/2, N, max_threads);
         })
         | ex::bulk(lN/2, [&](int k){
             // combine even and odd FFTs

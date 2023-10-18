@@ -67,6 +67,7 @@ int main(int argc, char* argv[]) {
   Real_t *phi_old = grid_old.data();
   Real_t *phi_new = grid_new.data();
 
+  // 2D jacobi algorithm pipeline
   auto algorithm = [&](auto sch) {
 
     auto phi_old_extent = ncells + nghosts;
