@@ -13,25 +13,12 @@ target_include_directories(
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-add_executable(stencil_stdpar_snd_iter stencil_stdpar_snd_iter.cpp)
-target_link_libraries(stencil_stdpar_snd_iter stdexec)
-target_include_directories(
-  stencil_stdpar_snd_iter
-  PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
-          ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
-
 if("${STDPAR}" STREQUAL "gpu")
-  add_executable(stencil_snd_gpu_s stencil_snd_gpu_s.cpp)
-  target_link_libraries(stencil_snd_gpu_s stdexec)
+  # TODO, fix cmake
+  add_executable(stencil_stdexec stencil_stdexec.cpp)
+  target_link_libraries(stencil_stdexec stdexec)
   target_include_directories(
-    stencil_snd_gpu_s
-    PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
-            ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
-
-  add_executable(stencil_snd_gpu_m stencil_snd_gpu_m.cpp)
-  target_link_libraries(stencil_snd_gpu_m stdexec)
-  target_include_directories(
-    stencil_snd_gpu_m
+    stencil_stdexec
     PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
             ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
@@ -41,6 +28,5 @@ if("${STDPAR}" STREQUAL "gpu")
     PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
             ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 else()
-  message(STATUS "Skipping stencil_snd_gpu_s.cpp as stdpar=${STDPAR}")
-  message(STATUS "Skipping stencil_snd_gpu_m.cpp as stdpar=${STDPAR}")
+  message(STATUS "Skipping stencil_stdexec.cpp as stdpar=${STDPAR}")
 endif()
