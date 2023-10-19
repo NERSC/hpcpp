@@ -34,6 +34,8 @@
 
 #include <experimental/mdspan>
 #include <stdexec/execution.hpp>
+#include <nvexec/stream_context.cuh>
+#include <nvexec/multi_gpu_context.cuh>
 #include <exec/any_sender_of.hpp>
 #include "exec/static_thread_pool.hpp"
 #include "argparse/argparse.hpp"
@@ -100,6 +102,10 @@ struct fft_params_t : public argparse::Args {
   bool& print_sig = flag("p,print", "print x[n] and X(k)");
   int& max_threads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 
+#if defined(FFT_STDEXEC)
+  std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu, gpu, multigpu]").set_default("cpu");
+#endif  // FFT_STDEXEC
+
   bool& validate = flag("validate", "validate the results via y[k] = WNk * x[n]");
   bool& help = flag("h, help", "print help");
   bool& print_time = flag("t,time", "print fft time");
@@ -140,6 +146,15 @@ bool complex_compare(data_t a, data_t b, double error = 0.0101)
   auto i = (fabs(a.imag() - b.imag()) < error)? true: false;
 
   return (r && i);
+}
+
+uint32_t reverse_bits32(uint32_t x)
+{
+    x = ((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1);
+    x = ((x & 0xcccccccc) >> 2) | ((x & 0x33333333) << 2);
+    x = ((x & 0xf0f0f0f0) >> 4) | ((x & 0x0f0f0f0f) << 4);
+    x = ((x & 0xff00ff00) >> 8) | ((x & 0x00ff00ff) << 8);
+    return (x >> 16) | (x << 16);
 }
 
 class signal
