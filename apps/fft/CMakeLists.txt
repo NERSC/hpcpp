@@ -2,6 +2,11 @@ project(fft LANGUAGES CXX)
 
 file(GLOB CPP_SOURCES "*.cpp")
 
+# add -cudalib=cublas if -stdpar=gpu
+if (STDPAR STREQUAL "gpu")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -cudalib=cublas")
+endif()
+
 foreach(source_file ${CPP_SOURCES})
   if(NOT STDPAR STREQUAL "gpu")
     if("${source_file}" MATCHES ".*stdpar.*gpu.*" OR "${source_file}"
@@ -18,16 +23,19 @@ foreach(source_file ${CPP_SOURCES})
   add_executable(${exec_name} ${_EXCLUDE} ${source_file})
 
   # add dependency on argparse
-  add_dependencies(${exec_name} argparse magic_enum)
+  add_dependencies(${exec_name} argparse)
 
   set_source_files_properties(${source_file} PROPERTIES LANGUAGE CXX
                                                         LINKER_LANGUAGE CXX)
   target_include_directories(
     ${exec_name}
     PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
-            ${ARGPARSE_INCLUDE_DIR} ${MAGICENUM_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
+            ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec)
+  # uncomment only if using nvc++/23.1 - no need if nvc++/23.7
+  # target_link_directories(${exec_name} PRIVATE /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/math_libs/lib64)
+
+  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec blas)
 
   set_target_properties(
     ${exec_name}

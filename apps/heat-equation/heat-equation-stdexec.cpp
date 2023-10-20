@@ -36,7 +36,7 @@
 //
 int main(int argc, char* argv[]) {
   // parse params
-  heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
+  const heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
 
   // see if help wanted
   if (args.help) {
@@ -155,12 +155,14 @@ int main(int argc, char* argv[]) {
     case sch_t::CPU:
       algorithm(exec::static_thread_pool(nthreads).get_scheduler());
       break;
+#if defined(USE_GPU)
     case sch_t::GPU:
       algorithm(nvexec::stream_context().get_scheduler());
       break;
     case sch_t::MULTIGPU:
       algorithm(nvexec::multi_gpu_stream_context().get_scheduler());
       break;
+#endif // USE_GPU
     default:
       throw std::runtime_error("Run: `heat-equation-stdexec --help` to see the list of available schedulers");
   }

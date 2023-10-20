@@ -52,7 +52,7 @@ void fill2Dboundaries_omp(T* grid, int len, int nthreads = 1,
 //
 int main(int argc, char* argv[]) {
   // parse params
-  heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
+  const heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
 
   // see if help wanted
   if (args.help) {
