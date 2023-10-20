@@ -12,7 +12,7 @@ ml nvhpc/23.7 cmake 3.24
 cmake .. -DSTDPAR=<gpu/multicore> ; make -j
 ```
 
-**Note**: Make sure your `localrc` file (located at `/path/to/nvhpc/bin`) is properly configured to `GCC/11.2.0` paths.
+**Note**: Make sure your `localrc` file (located at `/path/to/nvhpc/bin`) is properly configured to `GCC >= 11.2.0` paths.
 
 ### NERSC Users
 You can also use the pre-configured `localrc` file included in this repo. To use it, run:
@@ -37,5 +37,10 @@ srun -n 1 -N 1 -G <> -A <acct> -t 30 -C <cpu/gpu> ./apps/<appname>/<appname> [AR
 
 Use `--help` to see help with arguments.
 
+## Contributors
+(in alphabetical order of last name)
+- [Muhammad Haseeb](https://nersc.gov/muhammad-haseeb)
+- [Weile Wei](https://nersc.gov/weile-wei)
+
 ## License
-The Regents of the University of California (C) 2023
+Copyright (C) The Regents of the University of California, 2023 (See [LICENSE](LICENSE) for details).
