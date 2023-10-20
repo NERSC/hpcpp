@@ -1,18 +1,30 @@
 # nvstdpar
-NV-STDEXEC & C++26 powered GPU-accelerated scientific proxy apps & kernels
+ & nv-stdexec powered Standard C++26 (single-source) HPC proxy apps that run on CPUs and GPUs.
 
-## Build Apps (Perlmutter)
+## Build
 
 ```bash
 git clone --recursive https://github.com/mhaseeb123/nvstdpar.git
 cd nvstdpar ; mkdir build ; cd build
-ml nvhpc/23.1 cmake 3.24
-cmake .. -DUSE_MDSPAN=ON ; make -j
+ml nvhpc/23.7 cmake 3.24
+cmake .. ; make -j
 ```
 
-## Build Apps (Elsewhere)
-Same as above but please edit `nvstdpar/CMakeLists.txt` before running `cmake` and add path to your `GCC/11.2.0+` compiler `/bin` to `--gcc-toolchain` as shown [here](https://github.com/mhaseeb123/nvstdpar/blob/main/CMakeLists.txt#L100).
+**Note**: Make sure your `localrc` file (located at `/path/to/nvhpc/bin`) is properly configured to borrow `GCC/11.2.0` compiler features.
 
+**Perlmutter Users**: You can also use the pre-configured `localrc` file included in this repo. To use it, run:
+
+```bash
+export GCCLOCALRC=${THIS_REPO_PATH}/scripts/pm-localrc/localrc
+```
+
+**Using nvc++ earlier than 23.7?**
+
+Uncomment the following line in `apps/fft/CMakeLists.txt`
+```bash
+  # uncomment only if using nvc++ earlier than 23.7 to find libcublas
+  # target_link_directories(${exec_name} PRIVATE /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/math_libs/lib64)
+```
 
 ## Run Apps
 

@@ -1,0 +1,19 @@
+set LFC=-lgfortran;
+set LDSO=/lib64/ld-linux-x86-64.so.2;
+set GCCDIR=/opt/cray/pe/gcc/12.2.0/snos/lib/gcc/x86_64-suse-linux/12.2.0/;
+set G77DIR=/opt/cray/pe/gcc/12.2.0/snos/lib/gcc/x86_64-suse-linux/12.2.0/;
+set OEM_INFO=64-bit target on x86-64 Linux $INFOTPVAL;
+set GNUATOMIC=-latomic;
+set GCCINC=/opt/nvidia/hpc_sdk/Linux_x86_64/23.1/math_libs/12.0/include /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/cuda/12.0/include /opt/cray/pe/gcc/12.2.0/snos/lib/gcc/x86_64-suse-linux/12.2.0/include /usr/local/include /opt/cray/pe/gcc/12.2.0/snos/include /opt/cray/pe/gcc/12.2.0/snos/lib/gcc/x86_64-suse-linux/12.2.0/include-fixed /usr/include;
+set GPPDIR=/opt/nvidia/hpc_sdk/Linux_x86_64/23.1/math_libs/12.0/include /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/cuda/12.0/include /opt/cray/pe/gcc/12.2.0/snos/include/g++ /opt/cray/pe/gcc/12.2.0/snos/include/g++/x86_64-suse-linux /opt/cray/pe/gcc/12.2.0/snos/include/g++/backward /opt/cray/pe/gcc/12.2.0/snos/lib/gcc/x86_64-suse-linux/12.2.0/include /usr/local/include /opt/cray/pe/gcc/12.2.0/snos/include /opt/cray/pe/gcc/12.2.0/snos/lib/gcc/x86_64-suse-linux/12.2.0/include-fixed /usr/include;
+set NUMALIBNAME=-lnuma;
+set LOCALRC=YES;
+set EXTENSION=__extension__=;
+set LC=-lgcc -lc $if(-Bstatic,-lgcc_eh, -lgcc_s);
+set DEFCUDAVERSION=12.0;
+set DEFSTDPARCOMPUTECAP=80;
+# GLIBC version 2.31
+# GCC version 12.2.0
+set GCCVERSION=120200;
+set LIBNCURSES=YES;
+export PGI=$COMPBASE;
