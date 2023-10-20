@@ -36,11 +36,11 @@
 #include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>
 
-#if defined(GPUSTDPAR)
+#if defined(USE_GPU)
   #include <nvexec/stream_context.cuh>
   #include <nvexec/multi_gpu_context.cuh>
 using namespace nvexec;
-#endif //GPUSTDPAR
+#endif //USE_GPU
 
 #include <experimental/linalg>
 #include "argparse/argparse.hpp"
@@ -94,9 +94,9 @@ struct fft_params_t : public argparse::Args {
 
 #if defined(FFT_STDEXEC)
   std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
-  #if defined (GPUSTDPAR)
+  #if defined (USE_GPU)
                           ", gpu, multigpu"
-  #endif //GPUSTDPAR
+  #endif //USE_GPU
                           "]").set_default("cpu");
 #endif  // FFT_STDEXEC
 
@@ -169,6 +169,11 @@ public:
   signal(signal &rhs)
   {
     y = rhs.y;
+  }
+
+  signal(std::vector<data_t> &&in)
+  {
+    y = std::move(in);
   }
 
   signal(std::vector<data_t> &in)
@@ -274,14 +279,15 @@ public:
     std::cout << "]" << std::endl;
   }
 
-  bool isFFT(signal &X, scheduler auto sch, int maxN = 20000)
+  [[nodiscard]] bool isFFT(signal &X, scheduler auto sch, int maxN = 20000)
   {
     int N = y.size();
     bool ret = true;
 
-    //int nparts = N/maxN;
-    //int psize = std::min(N, nparts);
-    //int matsize = psize * psize;
+    if (X.len() > maxN)
+    {
+      std::cout << "Input signal may be too large to compute DFT via y[n] = WNk * x[n]. Segfaults expected.." << std::endl;
+    }
 
     std::vector<data_t> Y(N);
     std::vector<data_t> M(N*N);

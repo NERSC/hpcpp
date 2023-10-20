@@ -34,11 +34,11 @@
 #include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>
 
-#if defined(GPUSTDPAR)
+#if defined(USE_GPU)
   #include <nvexec/stream_context.cuh>
   #include <nvexec/multi_gpu_context.cuh>
 using namespace nvexec;
-#endif //GPUSTDPAR
+#endif //USE_GPU
 
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
@@ -79,9 +79,9 @@ struct heat_params_t : public argparse::Args {
 
 #if defined(HEQ_STDEXEC)
   std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
-  #if defined (GPUSTDPAR)
+  #if defined (USE_GPU)
                           ", gpu, multigpu"
-  #endif //GPUSTDPAR
+  #endif //USE_GPU
                           "]").set_default("cpu");
 #endif  // HEQ_STDEXEC
 

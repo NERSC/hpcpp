@@ -27,7 +27,7 @@
 //
 // This example provides a stdexec implementation for the 1D stencil code.
 #include <exec/static_thread_pool.hpp>
-#if defined(GPUSTDPAR)
+#if defined(USE_GPU)
 #include <nvexec/multi_gpu_context.cuh>
 #include <nvexec/stream_context.cuh>
 #endif
@@ -48,9 +48,9 @@ struct args_params_t : public argparse::Args {
     bool& help = flag("h, help", "print help");
     bool& time = kwarg("t, time", "print time").set_default(true);
     std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
-  #if defined (GPUSTDPAR)
+  #if defined (USE_GPU)
                             ", gpu, multigpu"
-  #endif //GPUSTDPAR
+  #endif //USE_GPU
                             "]").set_default("cpu");
 
     int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
@@ -128,14 +128,14 @@ int benchmark(args_params_t const& args) {
             case sch_t::CPU:
                 solution = step.do_work(exec::static_thread_pool(nthreads).get_scheduler(), size, nt);
                 break;
-#if defined(GPUSTDPAR)
+#if defined(USE_GPU)
             case sch_t::GPU:
                 solution = step.do_work(nvexec::stream_context().get_scheduler(), size, nt);
                 break;
             case sch_t::MULTIGPU:
                 solution = step.do_work(nvexec::multi_gpu_stream_context().get_scheduler(), size, nt);
                 break;
-#endif // GPUSTDPAR
+#endif // USE_GPU
             default:
                 std::cerr << "Unknown scheduler type encountered." << std::endl;
                 break;

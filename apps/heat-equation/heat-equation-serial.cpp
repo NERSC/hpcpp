@@ -56,7 +56,7 @@ void fill2Dboundaries_mdspan(T* grid, int len, int ghost_cells = 1) {
 //
 int main(int argc, char* argv[]) {
   // parse params
-  heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
+  const heat_params_t args = argparse::parse<heat_params_t>(argc, argv);
 
   // see if help wanted
   if (args.help) {

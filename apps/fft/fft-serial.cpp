@@ -33,7 +33,7 @@
 //
 // serial fft function
 //
-std::vector<data_t> fft_serial(data_t *x, const int N, bool debug = false)
+[[nodiscard]] std::vector<data_t> fft_serial(const data_t *x, const int N, bool debug = false)
 {
     std::vector<data_t> x_r(N);
     std::vector<uint32_t> id(N);
@@ -97,7 +97,7 @@ std::vector<data_t> fft_serial(data_t *x, const int N, bool debug = false)
 int main(int argc, char* argv[])
 {
     // parse params
-    fft_params_t args = argparse::parse<fft_params_t>(argc, argv);
+    const fft_params_t args = argparse::parse<fft_params_t>(argc, argv);
 
     // see if help wanted
     if (args.help)
@@ -139,10 +139,8 @@ int main(int argc, char* argv[])
     Timer timer;
 
     // fft radix-2 algorithm
-    auto &&y = fft_serial(x_n.data(), N, args.debug);
-
     // y[n] = fft(x[n]);
-    sig_t y_n(y);
+    sig_t y_n(std::move(fft_serial(x_n.data(), N, args.debug)));
 
     // stop timer
     auto elapsed = timer.stop();

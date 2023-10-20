@@ -93,9 +93,9 @@ enum class sch_t { CPU, GPU, MULTIGPU };
 [[nodiscard]] sch_t get_sch_enum(std::string_view str) {
     static const std::map<std::string_view, sch_t> schmap = {
         {"cpu", sch_t::CPU},
-#if defined (GPUSTDPAR)
+#if defined (USE_GPU)
         {"gpu", sch_t::GPU}, {"multigpu", sch_t::MULTIGPU}
-#endif // GPUSTDPAR
+#endif // USE_GPU
 };
 
     if (schmap.contains(str)) {
@@ -105,7 +105,7 @@ enum class sch_t { CPU, GPU, MULTIGPU };
     throw std::invalid_argument("FATAL: " + std::string(str) +
                                 " is not a stdexec scheduler.\n"
                                 "Available schedulers: cpu"
-#if defined (GPUSTDPAR)
+#if defined (USE_GPU)
                                 ", gpu, multigpu"
 #endif
                                 "\n"
