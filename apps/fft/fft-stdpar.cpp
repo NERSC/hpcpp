@@ -82,7 +82,7 @@
         }
 
         // parallel compute lN-pt FFT
-        std::for_each_n(std::execution::par_unseq, counting_iterator(0), N, [=](auto k){
+        std::for_each_n(std::execution::par_unseq, counting_iterator(0), N/2, [=](auto k){
             // compute indices
             int  e   = (k/tpp)*lN + (k % tpp);
             auto o   = e + tpp;
