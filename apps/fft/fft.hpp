@@ -54,8 +54,9 @@ using stdexec::sync_wait;
 
 namespace ex = stdexec;
 
-// 2D view
+// mdspan views
 using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
+using view_1d = std::extents<int, std::dynamic_extent>;
 
 // data type
 using Real_t = double;

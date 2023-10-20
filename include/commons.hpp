@@ -111,3 +111,6 @@ enum class sch_t { CPU, GPU, MULTIGPU };
                                 "\n"
                                 "Exiting...\n");
 }
+
+// alias for status variables
+using status_t = int;
