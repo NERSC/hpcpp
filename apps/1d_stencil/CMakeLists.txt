@@ -13,7 +13,6 @@ target_include_directories(
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-if("${STDPAR}" STREQUAL "gpu")
   # TODO, fix cmake
   add_executable(stencil_stdexec stencil_stdexec.cpp)
   target_link_libraries(stencil_stdexec stdexec)
@@ -22,6 +21,7 @@ if("${STDPAR}" STREQUAL "gpu")
     PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
             ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
+if("${STDPAR}" STREQUAL "gpu")
   add_executable(stencil_cuda stencil_cuda.cpp)
   target_include_directories(
     stencil_cuda

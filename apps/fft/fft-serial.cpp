@@ -31,6 +31,67 @@
 #include "fft.hpp"
 
 //
+// serial fft function
+//
+std::vector<data_t> fft_serial(data_t *x, const int N, bool debug = false)
+{
+    std::vector<data_t> x_r(N);
+    std::vector<uint32_t> id(N);
+
+    // bit shift
+    int shift = 32 - ilog2(N);
+
+    // twiddle data in x[n]
+    for (int k = 0; k < N; k++)
+    {
+        id[k] = reverse_bits32(k) >> shift;
+        x_r[k] = x[id[k]];
+    }
+
+    // niterations
+    int niters = ilog2(N);
+    // local merge partition size
+    int lN = 2;
+
+    // set cout precision
+    std::cout << std::fixed << std::setprecision(1);
+
+    std::cout << "FFT progress: ";
+
+    for (int k = 0; k < niters; k++, lN*=2)
+    {
+        std::cout << (100.0 * k)/niters << "%.." << std::flush;
+
+        static Timer dtimer;
+
+        // number of partitions
+        int nparts = N/lN;
+        int tpp = lN/2;
+
+        if (debug)
+            dtimer.start();
+
+        // merge
+        for (int k = 0; k < N/2; k++)
+        {
+            // compute indices
+            int  e   = (k/tpp)*lN + (k % tpp);
+            auto o   = e + tpp;
+            auto i   = (k % tpp);
+            auto tmp = x_r[e] + x_r[o] * WNk(N, i * nparts);
+            x_r[o]     = x_r[e] - x_r[o] * WNk(N, i * nparts);
+            x_r[e]     = tmp;
+        }
+
+        if (debug)
+        std::cout << "This iter time: " << dtimer.stop() << " ms" << std::endl;
+    }
+
+    std::cout << "100%" << std::endl;
+    return x_r;
+}
+
+//
 // simulation
 //
 int main(int argc, char* argv[])
@@ -64,9 +125,6 @@ int main(int argc, char* argv[])
         x_n.resize(N);
     }
 
-    // y[n] = fft(x[n]);
-    sig_t y_n(x_n);
-
     if (print_sig)
     {
         std::cout << std::endl << "x[n] = ";
@@ -81,7 +139,10 @@ int main(int argc, char* argv[])
     Timer timer;
 
     // fft radix-2 algorithm
-    fft_serial(y_n.data(), N, N);
+    auto &&y = fft_serial(x_n.data(), N, args.debug);
+
+    // y[n] = fft(x[n]);
+    sig_t y_n(y);
 
     // stop timer
     auto elapsed = timer.stop();
@@ -101,7 +162,7 @@ int main(int argc, char* argv[])
     // validate the recursively computed fft
     if (validate)
     {
-        if (x_n.isFFT(y_n))
+        if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler()))
             std::cout << "SUCCESS: y[n] == fft(x[n])" << std::endl;
         else
             std::cout << "FAILED: y[n] != fft(x[n])" << std::endl;

@@ -155,12 +155,14 @@ int main(int argc, char* argv[]) {
     case sch_t::CPU:
       algorithm(exec::static_thread_pool(nthreads).get_scheduler());
       break;
+#if defined(GPUSTDPAR)
     case sch_t::GPU:
       algorithm(nvexec::stream_context().get_scheduler());
       break;
     case sch_t::MULTIGPU:
       algorithm(nvexec::multi_gpu_stream_context().get_scheduler());
       break;
+#endif // GPUSTDPAR
     default:
       throw std::runtime_error("Run: `heat-equation-stdexec --help` to see the list of available schedulers");
   }

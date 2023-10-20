@@ -31,16 +31,10 @@
 #define FFT_STDEXEC
 #include "fft.hpp"
 
-using namespace nvexec;
-
-using any_void_sender =
-      any_sender_of<stdexec::set_value_t(), stdexec::set_stopped_t(),
-                    stdexec::set_error_t(std::exception_ptr)>;
-
 //
 // fft algorithm
 //
-std::vector<data_t> fft(scheduler auto sch, data_t *x, const int N, const int max_threads)
+std::vector<data_t> fft(data_t *x, scheduler auto sch, const int N, const int max_threads, bool debug = false)
 {
     std::vector<data_t> x_rev(N);
     std::vector<uint32_t> ind(N);
@@ -66,54 +60,45 @@ std::vector<data_t> fft(scheduler auto sch, data_t *x, const int N, const int ma
 
     // set cout precision
     std::cout << std::fixed << std::setprecision(1);
+    std::cout << "FFT progress: ";
 
     // transfer_just sender
     ex::sender auto tx = ex::transfer_just(sch, x_r);
 
     for (int k = 0; k < niters; k++, lN*=2)
     {
-        std::cout << "FFT progress: " << (100.0 * k)/niters << "%" << std::endl;
+        std::cout << (100.0 * k)/niters << "%.." << std::flush;
+
+        static Timer dtimer;
 
         // number of partitions
-        int stride = N/lN;
+        int nparts = N/lN;
+        int tpp = lN/2;
 
-        if (lN < max_threads)
+        if (debug)
         {
-            //std::cout << "lN = " << lN << ", partition size = " << stride << ", bulk = " << stride << ", each thread = " << lN/2 << std::endl;
-            ex::sender auto merge = tx | ex::bulk(stride, [=](auto k, auto y)
-            {
-                // combine even and odd FFTs
-                for (int i = 0; i < lN/2; i++)
-                {
-                    auto e = i + k*lN;
-                    auto o = i + k*lN + lN/2;
-                    auto tmp     = y[e] + y[o] * WNk(N, i * stride);
-                    y[o] = y[e] - y[o] * WNk(N, i * stride);
-                    y[e] = tmp;
-                }
-            });
-
-            ex::sync_wait(std::move(merge));
+            dtimer.start();
+            std::cout << "lN = " << lN << ", npartitions = " << nparts << ", partition size = " << tpp << std::endl;
         }
-        else
+
+        ex::sender auto merge = tx | ex::bulk(N/2, [=](auto k, auto y)
         {
-            //std::cout << "lN = " << lN << ", partition size = " << stride << ", bulk = " << lN/2 << ", x times called = " << stride << std::endl;
-            // combine even and odd FFTs
-            for (int i = 0; i < stride; i++)
-            {
-                ex::sender auto merge = tx | ex::bulk(lN/2, [=](auto k, auto y)
-                {
-                    auto e = k + i*lN;
-                    auto o = k + i*lN + lN/2;
-                    auto tmp = y[e] + y[o] * WNk(N, k * stride);
-                    y[o] = y[e] - y[o] * WNk(N, k * stride);
-                    y[e] = tmp;
-                });
+            // compute indices
+            int  e   = (k/tpp)*lN + (k % tpp);
+            auto o   = e + tpp;
+            auto i   = (k % tpp);
+            auto tmp = y[e] + y[o] * WNk(N, i * nparts);
+            y[o]     = y[e] - y[o] * WNk(N, i * nparts);
+            y[e]     = tmp;
+        });
 
-                ex::sync_wait(std::move(merge));
-            }
-        }
+        ex::sync_wait(std::move(merge));
+
+        if (debug)
+            std::cout << "This iter time: " << dtimer.stop() << " ms" << std::endl;
     }
+
+    std::cout << "100%" << std::endl;
 
     return x_rev;
 }
@@ -173,14 +158,16 @@ int main(int argc, char* argv[])
     // launch with appropriate stdexec scheduler
     switch (scheduler) {
         case sch_t::CPU:
-            y = fft(exec::static_thread_pool(max_threads).get_scheduler(), x_n.data(), N, max_threads);
+            y = fft(x_n.data(), exec::static_thread_pool(max_threads).get_scheduler(), N, max_threads, args.debug);
             break;
+#if defined(GPUSTDPAR)
         case sch_t::GPU:
-            y = fft(nvexec::stream_context().get_scheduler(), x_n.data(), N, 1024*108);
+            y = fft(x_n.data(), nvexec::stream_context().get_scheduler(), N, 1024*108, args.debug);
             break;
         case sch_t::MULTIGPU:
-            y = fft(nvexec::multi_gpu_stream_context().get_scheduler(), x_n.data(), N, 4*1024*108);
+            y = fft(x_n.data(), nvexec::multi_gpu_stream_context().get_scheduler(), N, 4*1024*108, args.debug);
             break;
+#endif // GPUSTDPAR
         default:
             throw std::runtime_error("Run: `fft-stdexec --help` to see the list of available schedulers");
   }
@@ -206,7 +193,25 @@ int main(int argc, char* argv[])
     // validate the recursively computed fft
     if (validate)
     {
-        if (x_n.isFFT(y_n))
+        bool verify = true;
+            // launch with appropriate stdexec scheduler
+        switch (scheduler) {
+            case sch_t::CPU:
+                verify = x_n.isFFT(y_n, exec::static_thread_pool(max_threads).get_scheduler());
+                break;
+#if defined (GPUSTDPAR)
+            case sch_t::GPU:
+                verify = x_n.isFFT(y_n, nvexec::stream_context().get_scheduler());
+                break;
+            case sch_t::MULTIGPU:
+                verify = x_n.isFFT(y_n, nvexec::stream_context().get_scheduler());
+                break;
+#endif // GPUSTDPAR
+            default:
+                throw std::runtime_error("Run: `fft-stdexec --help` to see the list of available schedulers");
+        }
+
+        if (verify)
             std::cout << "SUCCESS: y[n] == fft(x[n])" << std::endl;
         else
             std::cout << "FAILED: y[n] != fft(x[n])" << std::endl;

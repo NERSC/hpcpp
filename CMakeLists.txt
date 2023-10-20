@@ -171,8 +171,15 @@ endif()
 
 # need to add appropriate flags for stdexec
 set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -stdpar=${STDPAR} -mp=${OMP} --gcc-toolchain=/opt/cray/pe/gcc/12.2.0/bin/ -pthread"
+    "${CMAKE_CXX_FLAGS} -stdpar=${STDPAR} -mp=${OMP} -pthread"
 )
+
+# add -cudalib=cublas if -stdpar=gpu
+if (STDPAR STREQUAL "gpu")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGPUSTDPAR")
+else()
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -UGPUSTDPAR")
+endif()
 
 # ##############################################################################
 # Add sub-directories

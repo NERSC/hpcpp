@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2023 Weile Wei 
+ * Copyright (c) 2023 Weile Wei
  * Copyright (c) 2023 The Regents of the University of California,
  * through Lawrence Berkeley National Laboratory (subject to receipt of any
  * required approvals from the U.S. Dept. of Energy).All rights reserved.
@@ -27,8 +27,10 @@
 //
 // This example provides a stdexec implementation for the 1D stencil code.
 #include <exec/static_thread_pool.hpp>
+#if defined(GPUSTDPAR)
 #include <nvexec/multi_gpu_context.cuh>
 #include <nvexec/stream_context.cuh>
+#endif
 #include <stdexec/execution.hpp>
 
 #include "argparse/argparse.hpp"
@@ -45,7 +47,12 @@ struct args_params_t : public argparse::Args {
     bool& no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false);
     bool& help = flag("h, help", "print help");
     bool& time = kwarg("t, time", "print time").set_default(true);
-    std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu, gpu, multigpu]").set_default("cpu");
+    std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
+  #if defined (GPUSTDPAR)
+                            ", gpu, multigpu"
+  #endif //GPUSTDPAR
+                            "]").set_default("cpu");
+
     int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 };
 
@@ -121,12 +128,14 @@ int benchmark(args_params_t const& args) {
             case sch_t::CPU:
                 solution = step.do_work(exec::static_thread_pool(nthreads).get_scheduler(), size, nt);
                 break;
+#if defined(GPUSTDPAR)
             case sch_t::GPU:
                 solution = step.do_work(nvexec::stream_context().get_scheduler(), size, nt);
                 break;
             case sch_t::MULTIGPU:
                 solution = step.do_work(nvexec::multi_gpu_stream_context().get_scheduler(), size, nt);
                 break;
+#endif // GPUSTDPAR
             default:
                 std::cerr << "Unknown scheduler type encountered." << std::endl;
                 break;

@@ -74,7 +74,7 @@ auto work(P& A, P& B, P& Y, int N) {
 
   // get sum(Y) - one last memcpy (not USM) D2H
   sum +=
-      std::transform_reduce(std::execution::par_unseq, &Y[0], &Y[N], 0.0, std::plus<T>(), [](T &val){return val * val;});
+      std::reduce(std::execution::par_unseq, &Y[0], &Y[N], 0.0, std::plus<T>());
 
   return sum / N;
 }
