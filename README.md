@@ -7,20 +7,22 @@
 git clone --recursive https://github.com/mhaseeb123/nvstdpar.git
 cd nvstdpar ; mkdir build ; cd build
 ml nvhpc/23.7 cmake 3.24
-cmake .. ; make -j
+
+# enable GPU support by setting -DSTDPAR=gpu (default)
+cmake .. -DSTDPAR=<gpu/multicore> ; make -j
 ```
 
-**Note**: Make sure your `localrc` file (located at `/path/to/nvhpc/bin`) is properly configured to borrow `GCC/11.2.0` compiler features.
+**Note**: Make sure your `localrc` file (located at `/path/to/nvhpc/bin`) is properly configured to `GCC/11.2.0` paths.
 
-**Perlmutter Users**: You can also use the pre-configured `localrc` file included in this repo. To use it, run:
+### NERSC Users
+You can also use the pre-configured `localrc` file included in this repo. To use it, run:
 
 ```bash
-export GCCLOCALRC=${THIS_REPO_PATH}/scripts/pm-localrc/localrc
+export GCCLOCALRC=/path/to/nvstdpar/scripts/pm-localrc/localrc
 ```
 
-**Using nvc++ earlier than 23.7?**
+**Note**: Please uncomment the following line in `apps/fft/CMakeLists.txt` if using `nvc++` version < 23.7?
 
-Uncomment the following line in `apps/fft/CMakeLists.txt`
 ```bash
   # uncomment only if using nvc++ earlier than 23.7 to find libcublas
   # target_link_directories(${exec_name} PRIVATE /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/math_libs/lib64)
@@ -30,7 +32,7 @@ Uncomment the following line in `apps/fft/CMakeLists.txt`
 
 ```bash
 cd nvstdpar/build
-srun -n 1 -N 1 -G 1 -A <acct> -C <gpu> ./apps/<appname>/<appname> [ARGS]
+srun -n 1 -N 1 -G <> -A <acct> -t 30 -C <cpu/gpu> ./apps/<appname>/<appname> [ARGS]
 ```
 
 Use `--help` to see help with arguments.
