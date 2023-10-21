@@ -21,13 +21,13 @@ struct args_params_t : public argparse::Args {
   bool& time = kwarg("t, time", "print time").set_default(true);
 };
 
+using Real_t = double;
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
-using Real_t = double;
-bool header = true;        // print csv heading
-Real_t k = 0.5;  // heat transfer coefficient
-Real_t dt = 1.;  // time step
-Real_t dx = 1.;  // grid spacing
+constexpr bool header = true;        // print csv heading
+constexpr Real_t k = 0.5;  // heat transfer coefficient
+constexpr Real_t dt = 1.;  // time step
+constexpr Real_t dx = 1.;  // grid spacing
 
 // Our operator
 __device__ Real_t heat(const Real_t left, const Real_t middle, const Real_t right, 

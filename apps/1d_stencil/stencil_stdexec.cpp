@@ -44,7 +44,6 @@ struct args_params_t : public argparse::Args {
     bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
     double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
     double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
-    bool& no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false);
     bool& help = flag("h, help", "print help");
     bool& time = kwarg("t, time", "print time").set_default(true);
     std::string& sch = kwarg("sch",
@@ -61,10 +60,9 @@ struct args_params_t : public argparse::Args {
 using Real_t = double;
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
-bool header = true;  // print csv heading
-Real_t k = 0.5;      // heat transfer coefficient
-Real_t dt = 1.;      // time step
-Real_t dx = 1.;      // grid spacing
+constexpr Real_t k = 0.5;      // heat transfer coefficient
+constexpr Real_t dt = 1.;      // time step
+constexpr Real_t dx = 1.;      // grid spacing
 
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
