@@ -24,6 +24,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#include <experimental/mdspan>
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
 
@@ -50,6 +51,8 @@ constexpr Real_t dx = 1.;      // grid spacing
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
 struct stepper {
+  using view_1d = std::extents<int, std::dynamic_extent>;
+  typedef std::mdspan<Real_t, view_1d, std::layout_right> space;
   void init_value(auto& data, const std::size_t size) {
     for (std::size_t i = 0; i != size; ++i) {
       data[i] = Real_t(i);
@@ -63,9 +66,11 @@ struct stepper {
   }
 
   // do all the work on 'size' data points for 'nt' time steps 
-  [[nodiscard]] std::vector<Real_t>  do_work(const std::size_t size, const std::size_t nt) {
-    std::vector<Real_t> current(size);
-    std::vector<Real_t> next(size);
+  [[nodiscard]] space do_work(const std::size_t size, const std::size_t nt) {
+    Real_t* current_ptr = new Real_t[size];
+    Real_t* next_ptr = new Real_t[size];
+    auto current = space(current_ptr, size);
+    auto next = space(next_ptr, size);
 
     init_value(current, size);
 
@@ -99,10 +104,9 @@ int benchmark(args_params_t const& args) {
 
   // Print the final solution
   if (args.results) {
-    for (const auto& ele: solution) {
-      std::cout << ele << " ";
+    for (std::size_t i = 0; i != size; ++i) {
+      std::cout << solution[i] << " ";
     }
-    std::cout << "\n";
   }
 
   if (args.time) {
