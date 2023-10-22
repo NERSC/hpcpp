@@ -28,6 +28,7 @@
 // This example provides a stdpar implementation for the 1D stencil code.
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
+#include <experimental/mdspan>
 
 // parameters
 struct args_params_t : public argparse::Args {
@@ -52,6 +53,8 @@ constexpr Real_t dx = 1.;      // grid spacing
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
 struct stepper {
+  using view_1d = std::extents<int, std::dynamic_extent>;
+  typedef std::mdspan<Real_t, view_1d, std::layout_right> space;
   // Our operator
   [[nodiscard]] Real_t heat(const Real_t left, const Real_t middle, const Real_t right, const Real_t k = ::k,
               const Real_t dt = ::dt, const Real_t dx = ::dx) {
@@ -59,16 +62,16 @@ struct stepper {
   }
 
   // do all the work on 'size' data points for 'nt' time steps
-  [[nodiscard]] std::vector<Real_t> do_work(const std::size_t size, const std::size_t nt) {
-    std::vector<Real_t> current_vec(size);
-    std::vector<Real_t> next_vec(size);
+  [[nodiscard]]  space do_work(const std::size_t size, const std::size_t nt) {
+     Real_t* current_ptr = new Real_t[size];
+     Real_t* next_ptr = new Real_t[size];
 
-    auto current_ptr = current_vec.data();
-    auto next_ptr = next_vec.data();
+     auto current = space(current_ptr, size);
+     auto next = space(next_ptr, size);
 
     // parallel init
     std::for_each_n(std::execution::par, counting_iterator(0), size,
-                    [=](std::size_t i) { current_ptr[i] = (Real_t)i; });
+                    [=](std::size_t i) { current[i] = (Real_t)i; });
 
     // Actual time step loop
     for (std::size_t t = 0; t != nt; ++t) {
@@ -76,13 +79,13 @@ struct stepper {
                       [=, k = k, dt = dt, dx = dx](int32_t i) {
                         std::size_t left = (i == 0) ? size - 1 : i - 1;
                         std::size_t right = (i == size - 1) ? 0 : i + 1;
-                        next_ptr[i] = heat(current_ptr[left], current_ptr[i],
-                                       current_ptr[right], k, dt, dx);
+                        next[i] = heat(current[left], current[i],
+                                       current[right], k, dt, dx);
                       });
-      std::swap(current_ptr, next_ptr);
+      std::swap(current, next);
     }
 
-    return current_vec;
+    return current;
   }
 };
 
@@ -103,10 +106,9 @@ int benchmark(args_params_t const& args) {
 
   // Print the final solution
   if (args.results) {
-    for (const auto& ele: solution) {
-      std::cout << ele << " ";
+    for (std::size_t i = 0; i != size; ++i) {
+      std::cout << solution[i] << " ";
     }
-    std::cout << "\n";
   }
 
   if (args.time) {
