@@ -44,14 +44,15 @@ struct args_params_t : public argparse::Args {
     bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
     double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
     double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
-    bool& no_header = kwarg("no-header", "Do not print csv header row (default: false)").set_default(false);
     bool& help = flag("h, help", "print help");
     bool& time = kwarg("t, time", "print time").set_default(true);
-    std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
-  #if defined (USE_GPU)
-                            ", gpu, multigpu"
-  #endif //USE_GPU
-                            "]").set_default("cpu");
+    std::string& sch = kwarg("sch",
+                             "stdexec scheduler: [options: cpu"
+#if defined(USE_GPU)
+                             ", gpu, multigpu"
+#endif  //USE_GPU
+                             "]")
+                           .set_default("cpu");
 
     int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 };
@@ -59,10 +60,9 @@ struct args_params_t : public argparse::Args {
 using Real_t = double;
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
-bool header = true;  // print csv heading
-Real_t k = 0.5;      // heat transfer coefficient
-Real_t dt = 1.;      // time step
-Real_t dx = 1.;      // grid spacing
+constexpr Real_t k = 0.5;      // heat transfer coefficient
+constexpr Real_t dt = 1.;      // time step
+constexpr Real_t dx = 1.;      // grid spacing
 
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
@@ -135,7 +135,7 @@ int benchmark(args_params_t const& args) {
             case sch_t::MULTIGPU:
                 solution = step.do_work(nvexec::multi_gpu_stream_context().get_scheduler(), size, nt);
                 break;
-#endif // USE_GPU
+#endif  // USE_GPU
             default:
                 std::cerr << "Unknown scheduler type encountered." << std::endl;
                 break;
@@ -149,8 +149,8 @@ int benchmark(args_params_t const& args) {
 
     // Print the final solution
     if (args.results) {
-        for (std::size_t i = 0; i != size; ++i) {
-            std::cout << solution[i] << " ";
+        for (const auto& ele : solution) {
+            std::cout << ele << " ";
         }
         std::cout << "\n";
     }

@@ -9,10 +9,8 @@
 struct args_params_t : public argparse::Args {
   bool& results = kwarg("results", "print generated results (default: false)")
                       .set_default(false);
-  std::uint64_t& nx =
-      kwarg("nx", "Local x dimension (of each partition)").set_default(10);
   std::uint64_t& nt = kwarg("nt", "Number of time steps").set_default(45);
-  std::uint64_t& np = kwarg("np", "Number of partitions").set_default(10);
+  std::uint64_t& size = kwarg("size", "Number of elements").set_default(10);
   bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
   double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
   double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
@@ -23,51 +21,51 @@ struct args_params_t : public argparse::Args {
   bool& time = kwarg("t, time", "print time").set_default(true);
 };
 
+using Real_t = double;
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
-bool header = true;        // print csv heading
-constexpr double k = 0.5;  // heat transfer coefficient
-constexpr double dt = 1.;  // time step
-constexpr double dx = 1.;  // grid spacing
+constexpr bool header = true;        // print csv heading
+constexpr Real_t k = 0.5;  // heat transfer coefficient
+constexpr Real_t dt = 1.;  // time step
+constexpr Real_t dx = 1.;  // grid spacing
 
 // Our operator
-__device__ double heat(double left, double middle, double right) {
+__device__ Real_t heat(const Real_t left, const Real_t middle, const Real_t right, 
+  const Real_t k, const Real_t dt, const Real_t dx) {
   return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
 }
 
-__global__ void heat_equation(double* current, double* next, std::size_t size) {
+__global__ void heat_equation(Real_t* current, Real_t* next, std::size_t size, 
+  const Real_t k, const Real_t dt, const Real_t dx) {
   std::size_t i = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (i < size) {
     std::size_t left = (i == 0) ? size - 1 : i - 1;
     std::size_t right = (i == size - 1) ? 0 : i + 1;
-    next[i] = heat(current[left], current[i], current[right]);
+    next[i] = heat(current[left], current[i], current[right], k, dt, dx);
   }
 }
 
 int benchmark(args_params_t const& args) {
-  // Parameters (for simplicity, some are hardcoded)
-  std::uint64_t np = args.np;  // Number of partitions.
-  std::uint64_t nx = args.nx;  // Number of grid points.
+  std::uint64_t size = args.size;  // Number of elements.
   std::uint64_t nt = args.nt;  // Number of steps.
-  std::size_t size = np * nx;
 
-  double* h_current = nullptr;
-  double* h_next = nullptr;
+  Real_t* h_current = nullptr;
+  Real_t* h_next = nullptr;
 
   // Measure execution time.
   Timer timer;
 
   // Memory allocation
   if (args.results) {
-    h_current = new double[size];
-    h_next = new double[size];
+    h_current = new Real_t[size];
+    h_next = new Real_t[size];
   }
 
-  double* d_current;
-  double* d_next;
-  cudaMalloc(&d_current, size * sizeof(double));
-  cudaMalloc(&d_next, size * sizeof(double));
+  Real_t* d_current;
+  Real_t* d_next;
+  cudaMalloc(&d_current, size * sizeof(Real_t));
+  cudaMalloc(&d_next, size * sizeof(Real_t));
   thrust::sequence(thrust::device, d_current, d_current + size, 0);
   thrust::sequence(thrust::device, d_next, d_next + size, 0);
 
@@ -77,7 +75,7 @@ int benchmark(args_params_t const& args) {
 
   // Actual time step loop
   for (std::size_t t = 0; t < nt; ++t) {
-    heat_equation<<<blocks, threadsPerBlock>>>(d_current, d_next, size);
+    heat_equation<<<blocks, threadsPerBlock>>>(d_current, d_next, size, k, dt, dx);
     std::swap(d_current, d_next);
   }
   cudaDeviceSynchronize();
@@ -85,17 +83,14 @@ int benchmark(args_params_t const& args) {
 
   if (args.results) {
     // Copy result back to host
-    cudaMemcpy(h_current, d_current, size * sizeof(double),
+    cudaMemcpy(h_current, d_current, size * sizeof(Real_t),
                cudaMemcpyDeviceToHost);
 
     // Print results
-    for (std::size_t i = 0; i < np; ++i) {
-      std::cout << "U[" << i << "] = {";
-      for (std::size_t j = 0; j < nx; ++j) {
-        std::cout << h_current[i * nx + j] << " ";
-      }
-      std::cout << "}\n";
+    for (std::size_t i = 0; i != size; ++i) {
+      std::cout << h_current[i] << " ";
     }
+    std::cout << "\n";
     // Cleanup
     delete[] h_current;
     delete[] h_next;
