@@ -38,7 +38,7 @@ make -j fft-stdexec fft-stdpar
 
 # always run NCU and Nsys from $SCRATCH to avoid errors on Perlmutter
 mkdir -p ${SCRATCH}/fft-gpu-nsight
-cd ${SCRATCH}
+cd ${SCRATCH}/fft-gpu-nsight
 rm -rf ./*
 
 
