@@ -28,6 +28,7 @@ rm -rf ./*
 
 ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
 ml nvhpc/23.7
+# needed for GLIBC
 ml gcc/12.2.0
 ml cmake/3.24
 
