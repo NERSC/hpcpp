@@ -50,6 +50,6 @@ done
 
 for d in "${D[@]}"; do
     echo "stdexec:multi_gpu for ${d}"
-    srun -n 1 ./fft-stdpar -N ${d} --time --sch=multigpu 2>&1
+    srun -n 1 ./fft-stdexec -N ${d} --time --sch=multigpu 2>&1
 done
 
