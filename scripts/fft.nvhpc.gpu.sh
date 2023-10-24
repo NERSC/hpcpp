@@ -9,7 +9,7 @@
 #SBATCH -A nstaff_g
 #SBATCH -C gpu
 #SBATCH --qos=regular
-#SBATCH --time=4:00:00
+#SBATCH --time=8:00:00
 #SBATCH --nodes=1
 #SBATCH --gpus=4
 #SBATCH --ntasks-per-node=4
@@ -36,12 +36,18 @@ make -j fft-stdexec fft-stdpar
 
 cd ${HOME}/repos/nvstdpar/build-fft-gpu/apps/fft
 
-D=1073741824
+D=(536870912 1073741824)
 
-set -x
+for d in "${D[@]}"; do
+    echo "stdexec:gpu for ${d}"
+    srun -n 1 ./fft-stdexec -N ${d} --time --sch=gpu
 
-srun -n 1 ./fft-stdexec -N ${D} --time --sch=gpu 2>&1 |& tee fft-stdexec.txt
+    echo "stdpar:gpu for ${d}"
+    srun -n 1  ./fft-stdpar -N ${d} --time 2>&1
+done
 
-srun -n 1  ./fft-stdpar -N ${D} --time 2>&1 |& tee fft-stdpar.txt
+for d in "${D[@]}"; do
+    echo "stdexec:multi_gpu for ${d}"
+    srun -n 1 ./fft-stdpar -N ${d} --time --sch=multigpu 2>&1
+done
 
-srun -n 1 ./fft-stdpar -N ${D} --time --sch=multigpu 2>&1 |& tee fft-stdexec-multigpu.txt

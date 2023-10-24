@@ -9,7 +9,7 @@
 #SBATCH -A nstaff
 #SBATCH -C cpu
 #SBATCH --qos=regular
-#SBATCH --time=4:00:00
+#SBATCH --time=8:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=128
@@ -34,17 +34,25 @@ make -j fft-serial fft-stdexec fft-stdpar
 
 cd ${HOME}/repos/nvstdpar/build-fft-cpu/apps/fft
 
-D=1073741824
+D=(536870912 1073741824)
 
-set -x
+# parallel runs
+T=(256 128 64 32 16 8 4 2 1)
 
-srun -n 1 --cpu-bind=cores ./fft-serial -N ${D} --time 2>&1 |& tee fft-serial.txt
+for d in "${D[@]}"; do
+    for i in "${T[@]}"; do
+        echo "stdexec:cpu for ${d}, threads=${i}"
+        srun -n 1 --cpu-bind=cores ./fft-stdexec -N ${d} --time --sch=cpu --nthreads=${i}
+
+        echo "stdpar:cpu for ${d}, threads=${i}"
+        export OMP_NUM_THREADS=${i}
+        srun -n 1 --cpu-bind=cores ./fft-stdpar -N ${D} --time --nthreads=${i}
+    done
+done
 
 unset OMP_NUM_THREADS
 
-# parallel runs
-T=(128 64 32 16 8 4 2 1)
-
-for i in "${T[@]}"; do
-    srun -n 1 --cpu-bind=cores ./fft-stdpar -N ${D} --time --sch=cpu --nthreads=${i} 2>&1 |& tee fft-stdpar-cpu-${i}.txt
+for d in "${D[@]}"; do
+    echo "serial for ${d}"
+    srun -n 1 --cpu-bind=cores ./fft-serial -N ${D} --time
 done
