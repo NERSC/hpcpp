@@ -6,35 +6,57 @@
 # for GCC compiler script before running this.
 #
 
-set -x
+#SBATCH -A nstaff
+#SBATCH -C cpu
+#SBATCH --qos=regular
+#SBATCH --time=4:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=128
+#SBATCH --exclusive
+#SBATCH -o heat-cpu.o%j
+#SBATCH -e heat-cpu.e%j
+#SBATCH -J HEAT-CPU
 
-mkdir -p ${HOME}/repos/nvstdpar/build-nvhpc
-cd ${HOME}/repos/nvstdpar/build-nvhpc
+set +x
 
-module use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
+BUILD_HOME=${HOME}/repos/nvstdpar/build-heat-cpu
 
+mkdir -p ${BUILD_HOME}
+cd ${BUILD_HOME}
 rm -rf ./*
-ml unload cudatoolkit cray-mpich
-ml cmake/3.24 nvhpc/23.7
+
+ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
+ml nvhpc/23.7
+ml gcc/12.2.0
+ml cmake/3.24
 
 cmake .. -DSTDPAR=multicore -DOMP=multicore
 
-make -j
+make -j heat-equation-omp heat-equation-serial heat-equation-stdexec heat-equation-stdpar
 
-cd ${HOME}/repos/nvstdpar/build-nvhpc/apps/heat-equation
-
-./heat-equation-mdspan -s=50 -n=30000 --time 2>&1 |& tee md.txt
+cd ${BUILD_HOME}/apps/heat-equation
 
 # parallel runs
-T=(128 64 32 16 8 4 2 1)
+T=(256 128 64 32 16 8 4 2 1)
+
+unset OMP_NUM_THREADS
 
 for i in "${T[@]}"; do
-    ./heat-equation-omp -s=50 -n=30000 --time --nthreads=${i} 2>&1 |& tee omp-${i}.txt
+    echo "heat:omp, threads=${i}"
+    srun -n 1 --cpu-bind=cores ./heat-equation-omp -s=50 -n=30000 --time --nthreads=${i}
+
+    echo "heat:stdexec, threads=${i}"
+    srun -n 1 --cpu-bind=cores ./heat-equation-stdexec -s=50 -n=30000 --time --nthreads=${i}
 done
 
 for i in "${T[@]}"; do
+    echo "heat:stdpar, threads=${i}"
     export OMP_NUM_THREADS=${i}
-    ./heat-equation-stdpar -s=50 -n=30000 --time 2>&1 |& tee stdpar-${i}.txt
+    srun -n 1 --cpu-bind=cores ./heat-equation-stdpar -s=50 -n=30000 --time
 done
 
 unset OMP_NUM_THREADS
+
+echo "heat:serial"
+srun -n 1 --cpu-bind=cores ./heat-equation-serial -s=50 -n=30000 --time
