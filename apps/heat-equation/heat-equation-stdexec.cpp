@@ -31,6 +31,98 @@
 #define HEQ_STDEXEC
 #include "heat-equation.hpp"
 
+// 2D jacobi algorithm pipeline
+void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t *dx, Real_t dt, Real_t alpha, int nsteps, int ncells, bool print = false)
+{
+    // init simulation time
+  Real_t time = 0.0;
+  auto phi_old_extent = ncells + nghosts;
+  int gsize = ncells * ncells;
+
+  // initialize dx on CPU
+  for (int i = 0; i < dims; ++i)
+    dx[i] = 1.0 / (ncells - 1);
+
+  // set cout precision
+  std::cout << std::fixed << std::setprecision(1);
+  std::cout << "HEQ progress: ";
+
+  auto heat_eq_init = ex::transfer_just(sch, phi_old)
+                      | ex::bulk(gsize, [=](int pos, auto phi_old) {
+                        int i = 1 + (pos / ncells);
+                        int j = 1 + (pos % ncells);
+
+                        Real_t x = pos(i, ghost_cells, dx[0]);
+                        Real_t y = pos(j, ghost_cells, dx[1]);
+
+                        // L2 distance (r2 from origin)
+                        Real_t r2 = (x * x + y * y) / (0.01);
+
+                        // phi(x,y) = 1 + exp(-r^2)
+                        phi_old[(i)*phi_old_extent + j] = 1 + exp(-r2);
+    });
+
+  ex::sync_wait(std::move(heat_eq_init));
+
+  if (print)
+    printGrid(phi_old, ncells + nghosts);
+
+  ex::sender auto tx = ex::transfer_just(sch, phi_old, phi_new, dx);
+
+  // evolve the system
+  for (auto step = 0; step < nsteps; step++) {
+    // print progress
+    std::cout << (100.0 * step)/nsteps << "%.." << std::flush;
+
+  static auto evolve = tx
+    | ex::bulk(phi_old_extent - nghosts,
+        [=](int pos, auto phi_old, auto phi_new, auto dx) {
+          int i = pos + ghost_cells;
+          int len = phi_old_extent;
+          // fill boundary cells in old_phi
+          phi_old[i] = phi_old[i + (ghost_cells * len)];
+          phi_old[i + (len * (len - ghost_cells))] =
+              phi_old[i + (len * (len - ghost_cells - 1))];
+          phi_old[i * len] = phi_old[(ghost_cells * len) + i];
+          phi_old[(len - ghost_cells) + (len * i)] =
+              phi_old[(len - ghost_cells - 1) + (len * i)];
+           })
+    | ex::bulk(gsize,
+        [=](int pos, auto phi_old, auto phi_new, auto dx) {
+          int i = 1 + (pos / ncells);
+          int j = 1 + (pos % ncells);
+
+          // Jacobi iteration
+          phi_new[(i - 1) * ncells + j - 1] =
+              phi_old[(i)*phi_old_extent + j] +
+              alpha * dt *
+                  ((phi_old[(i + 1) * phi_old_extent + j] -
+                    2.0 * phi_old[(i)*phi_old_extent + j] +
+                    phi_old[(i - 1) * phi_old_extent + j]) /
+                       (dx[0] * dx[0]) +
+                   (phi_old[(i)*phi_old_extent + j + 1] -
+                    2.0 * phi_old[(i)*phi_old_extent + j] +
+                    phi_old[(i)*phi_old_extent + j - 1]) /
+                       (dx[1] * dx[1]));
+           })
+    | ex::bulk(gsize, [=](int pos, auto phi_old, auto phi_new, auto dx) {
+          int i = 1 + (pos / ncells);
+          int j = 1 + (pos % ncells);
+          phi_old[(i)*phi_old_extent + j] = phi_new[(i - 1) * ncells + (j - 1)];
+    });
+
+    ex::sync_wait(std::move(evolve));
+
+    // update the simulation time
+    time += dt;
+  }
+
+  // print final progress mark
+  std::cout << "100%" << std::endl;
+
+  return;
+}
+
 //
 // simulation
 //
@@ -52,9 +144,6 @@ int main(int argc, char* argv[]) {
   Real_t alpha = args.alpha;
   std::string sched = args.sch;
 
-  // init simulation time
-  Real_t time = 0.0;
-
   // initialize dx, dy, dz
   std::vector<Real_t> ds(dims);
   // simulation setup (2D)
@@ -67,83 +156,6 @@ int main(int argc, char* argv[]) {
   Real_t *phi_old = grid_old.data();
   Real_t *phi_new = grid_new.data();
 
-  // 2D jacobi algorithm pipeline
-  auto algorithm = [&](auto sch) {
-
-    auto phi_old_extent = ncells + nghosts;
-    int gsize = ncells * ncells;
-
-    // initialize dx on CPU
-    for (int i = 0; i < dims; ++i)
-      dx[i] = 1.0 / (ncells - 1);
-
-    auto heat_eq_init = ex::transfer_just(sch, phi_old)
-                        | ex::bulk(gsize, [=](int pos, auto phi_old) {
-                          int i = 1 + (pos / ncells);
-                          int j = 1 + (pos % ncells);
-
-                          Real_t x = pos(i, ghost_cells, dx[0]);
-                          Real_t y = pos(j, ghost_cells, dx[1]);
-
-                          // L2 distance (r2 from origin)
-                          Real_t r2 = (x * x + y * y) / (0.01);
-
-                          // phi(x,y) = 1 + exp(-r^2)
-                          phi_old[(i)*phi_old_extent + j] = 1 + exp(-r2);
-                        });
-
-    ex::sync_wait(std::move(heat_eq_init));
-
-    if (args.print_grid)
-      printGrid(phi_old, ncells + nghosts);
-
-    // evolve the system
-    for (auto step = 0; step < nsteps; step++) {
-      static auto evolve = ex::transfer_just(sch, phi_old, phi_new, dx)
-          | ex::bulk(phi_old_extent - nghosts,
-                   [=](int pos, auto phi_old, auto phi_new, auto dx) {
-                     int i = pos + ghost_cells;
-                     int len = phi_old_extent;
-                     // fill boundary cells in old_phi
-                     phi_old[i] = phi_old[i + (ghost_cells * len)];
-                     phi_old[i + (len * (len - ghost_cells))] =
-                         phi_old[i + (len * (len - ghost_cells - 1))];
-                     phi_old[i * len] = phi_old[(ghost_cells * len) + i];
-                     phi_old[(len - ghost_cells) + (len * i)] =
-                         phi_old[(len - ghost_cells - 1) + (len * i)];
-                   }) |
-          ex::bulk(gsize,
-                   [=](int pos, auto phi_old, auto phi_new, auto dx) {
-                     int i = 1 + (pos / ncells);
-                     int j = 1 + (pos % ncells);
-
-                     // Jacobi iteration
-                     phi_new[(i - 1) * ncells + j - 1] =
-                         phi_old[(i)*phi_old_extent + j] +
-                         alpha * dt *
-                             ((phi_old[(i + 1) * phi_old_extent + j] -
-                               2.0 * phi_old[(i)*phi_old_extent + j] +
-                               phi_old[(i - 1) * phi_old_extent + j]) /
-                                  (dx[0] * dx[0]) +
-                              (phi_old[(i)*phi_old_extent + j + 1] -
-                               2.0 * phi_old[(i)*phi_old_extent + j] +
-                               phi_old[(i)*phi_old_extent + j - 1]) /
-                                  (dx[1] * dx[1]));
-                   }) |
-          ex::bulk(gsize, [=](int pos, auto phi_old, auto phi_new, auto dx) {
-            int i = 1 + (pos / ncells);
-            int j = 1 + (pos % ncells);
-            phi_old[(i)*phi_old_extent + j] = phi_new[(i - 1) * ncells + (j - 1)];
-          });
-
-      ex::sync_wait(std::move(evolve));
-
-      // update the simulation time
-      time += dt;
-    }
-    return;
-  };
-
   // initialize stdexec scheduler
   sch_t scheduler = get_sch_enum(sched);
 
@@ -153,14 +165,14 @@ int main(int argc, char* argv[]) {
   // launch with appropriate stdexec scheduler
   switch (scheduler) {
     case sch_t::CPU:
-      algorithm(exec::static_thread_pool(nthreads).get_scheduler());
+      heat_equation(exec::static_thread_pool{nthreads}.get_scheduler(), phi_old, phi_new, dx, dt, alpha, nsteps, ncells, args.print_grid);
       break;
 #if defined(USE_GPU)
     case sch_t::GPU:
-      algorithm(nvexec::stream_context().get_scheduler());
+      heat_equation(nvexec::stream_context().get_scheduler(), phi_old, phi_new, dx, dt, alpha, nsteps, ncells, args.print_grid);
       break;
     case sch_t::MULTIGPU:
-      algorithm(nvexec::multi_gpu_stream_context().get_scheduler());
+      heat_equation(nvexec::multi_gpu_stream_context().get_scheduler(), phi_old, phi_new, dx, dt, alpha, nsteps, ncells, args.print_grid);
       break;
 #endif // USE_GPU
     default:
@@ -174,14 +186,10 @@ int main(int argc, char* argv[]) {
     std::cout << "Time: " << elapsed << " ms" << std::endl;
   }
 
-  auto finalize = ex::then(ex::just(), [&]() {
-    if (args.print_grid)
-      // print the final grid
-      printGrid(phi_new, ncells);
-  });
+  if (args.print_grid)
+    // print the final grid
+    printGrid(phi_new, ncells);
 
-  // end the simulation
-  ex::sync_wait(std::move(finalize));
 
   return 0;
 }
