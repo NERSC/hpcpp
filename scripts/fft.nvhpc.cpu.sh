@@ -28,7 +28,7 @@ ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
 ml nvhpc/23.7
 ml cmake/3.24
 
-cmake .. -DSTDPAR=multicore -DOMP=multicore
+cmake .. -DSTDPAR=multicore -DOMP=multicore -DCMAKE_CXX_COMPILER=$(which nvc++)
 
 make -j fft-serial fft-stdexec fft-stdpar
 

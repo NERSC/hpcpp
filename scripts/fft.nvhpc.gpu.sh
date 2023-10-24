@@ -30,9 +30,9 @@ ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
 ml nvhpc/23.7
 ml cmake/3.24
 
-cmake .. -DSTDPAR=gpu -DOMP=gpu
+cmake .. -DSTDPAR=gpu -DOMP=gpu -DCMAKE_CXX_COMPILER=$(which nvc++)
 
-make -j fft-stdexec fft-stdpar -DCMAKE_CXX_COMPILER=$(which nvc++)
+make -j fft-stdexec fft-stdpar
 
 cd ${HOME}/repos/nvstdpar/build-fft-gpu/apps/fft
 
