@@ -43,9 +43,11 @@ using namespace nvexec;
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
 
-namespace ex = stdexec;
+using namespace std;
+using namespace stdexec;
+using stdexec::sync_wait;
 
-using namespace exec;
+namespace ex = stdexec;
 
 // data type
 using Real_t = double;

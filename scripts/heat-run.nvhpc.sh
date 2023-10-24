@@ -32,7 +32,7 @@ ml nvhpc/23.7
 ml gcc/12.2.0
 ml cmake/3.24
 
-cmake .. -DSTDPAR=multicore -DOMP=multicore
+cmake .. -DSTDPAR=multicore -DOMP=multicore -DCMAKE_CXX_COMPILER=$(which nvc++)
 
 make -j heat-equation-omp heat-equation-serial heat-equation-stdexec heat-equation-stdpar
 
