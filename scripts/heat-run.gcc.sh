@@ -51,4 +51,3 @@ done
 
 # will use 128 threads anyway
 ./heat-equation-stdpar -s=50 -n=30000 --time 2>&1 |& tee gcc-stdpar-${i}.txt
-
