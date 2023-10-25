@@ -3,7 +3,7 @@
 #SBATCH -A nstaff
 #SBATCH -C cpu
 #SBATCH --qos=regular
-#SBATCH --time=4:00:00
+#SBATCH --time=6:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=128
@@ -20,6 +20,7 @@ mkdir -p ${BUILD_HOME}
 cd ${BUILD_HOME}
 rm -rf ./*
 
+ml unload cudatoolkit
 ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
 ml nvhpc/23.7
 # needed for GLIBC
@@ -43,15 +44,6 @@ cd ${BUILD_HOME}/apps/1d_stencil
 T=(256 128 64 32 16 8 4 2 1)
 
 unset OMP_NUM_THREADS
-
-for i in "${T[@]}"; do
-    echo "1d:omp, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./stencil_omp --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
-
-
-    echo "1d:stdexec, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./stencil_stdexec --sch cpu --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
-done
 
 for i in "${T[@]}"; do
     echo "1d:stdpar, threads=${i}"

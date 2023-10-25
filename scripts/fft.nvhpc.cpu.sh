@@ -24,6 +24,7 @@ mkdir -p ${HOME}/repos/nvstdpar/build-fft-cpu
 cd ${HOME}/repos/nvstdpar/build-fft-cpu
 rm -rf ./*
 
+ml unload cudatoolkit
 ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
 ml nvhpc/23.7
 # need this for GLIBC

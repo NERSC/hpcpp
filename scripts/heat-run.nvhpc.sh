@@ -26,6 +26,7 @@ mkdir -p ${BUILD_HOME}
 cd ${BUILD_HOME}
 rm -rf ./*
 
+ml unload cudatoolkit
 ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
 ml nvhpc/23.7
 # needed for GLIBC
