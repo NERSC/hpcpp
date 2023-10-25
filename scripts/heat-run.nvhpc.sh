@@ -46,19 +46,19 @@ unset OMP_NUM_THREADS
 
 for i in "${T[@]}"; do
     echo "heat:omp, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./heat-equation-omp -s=50 -n=30000 --time --nthreads=${i}
+    srun -n 1 --cpu-bind=cores ./heat-equation-omp -s=500 -n=45000 --time --nthreads=${i}
 
     echo "heat:stdexec, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./heat-equation-stdexec -s=50 -n=30000 --time --nthreads=${i}
+    srun -n 1 --cpu-bind=cores ./heat-equation-stdexec -s=500 -n=45000 --time --nthreads=${i}
 done
 
 for i in "${T[@]}"; do
     echo "heat:stdpar, threads=${i}"
     export OMP_NUM_THREADS=${i}
-    srun -n 1 --cpu-bind=cores ./heat-equation-stdpar -s=50 -n=30000 --time
+    srun -n 1 --cpu-bind=cores ./heat-equation-stdpar -s=500 -n=45000 --time
 done
 
 unset OMP_NUM_THREADS
 
 echo "heat:serial"
-srun -n 1 --cpu-bind=cores ./heat-equation-serial -s=50 -n=30000 --time
+srun -n 1 --cpu-bind=cores ./heat-equation-serial -s=500 -n=45000 --time

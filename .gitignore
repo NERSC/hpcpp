@@ -83,6 +83,15 @@ __pycache__
 *.map
 *.pyc
 
+# slurm logs
+*.e[0-9]*
+*.o[0-9]*
+
+# nsys and ncu
+*.nsys-rep
+*.nsys.sqlite
+*.ncu-rep
+
 # preprocessed data files
 *.pbin
 

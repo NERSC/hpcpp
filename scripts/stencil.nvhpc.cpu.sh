@@ -32,7 +32,7 @@ ml cmake/3.24
 # export OMP_PROC_BIND=close
 
 
-oneDimension_size=500000000
+oneDimension_size=1000000000
 oneDimension_iterations=1000
 
 cmake .. -DSTDPAR=multicore -DOMP=multicore -DCMAKE_CXX_COMPILER=$(which nvc++)
