@@ -56,7 +56,7 @@ done
 for i in "${T[@]}"; do
     echo "1d:stdpar, threads=${i}"
     export OMP_NUM_THREADS=${i}
-    -n 1 --cpu-bind=cores ./stencil_stdpar --size $oneDimension_size --nt $oneDimension_iterations
+    srun -n 1 --cpu-bind=cores ./stencil_stdpar --size $oneDimension_size --nt $oneDimension_iterations
 done
 
 unset OMP_NUM_THREADS
