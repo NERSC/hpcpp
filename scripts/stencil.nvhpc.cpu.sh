@@ -31,8 +31,8 @@ ml cmake/3.24
 # export OMP_PROC_BIND=close
 
 
-oneDimension_size=1000000000
-oneDimension_iterations=4000
+oneDimension_size=500000000
+oneDimension_iterations=1000
 
 cmake .. -DSTDPAR=multicore -DOMP=multicore -DCMAKE_CXX_COMPILER=$(which nvc++)
 make -j
@@ -46,21 +46,21 @@ unset OMP_NUM_THREADS
 
 for i in "${T[@]}"; do
     echo "1d:omp, threads=${i}"
-    time srun -n 1 --cpu-bind=cores ./stencil_omp --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
+    srun -n 1 --cpu-bind=cores ./stencil_omp --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
 
 
     echo "1d:stdexec, threads=${i}"
-    time srun -n 1 --cpu-bind=cores ./stencil_stdexec --sch cpu --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
+    srun -n 1 --cpu-bind=cores ./stencil_stdexec --sch cpu --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
 done
 
 for i in "${T[@]}"; do
     echo "1d:stdpar, threads=${i}"
     export OMP_NUM_THREADS=${i}
-    srun -n 1 --cpu-bind=cores ./stencil_stdpar --size $oneDimension_size --nt $oneDimension_iterations
+    -n 1 --cpu-bind=cores ./stencil_stdpar --size $oneDimension_size --nt $oneDimension_iterations
 done
 
 unset OMP_NUM_THREADS
 
 echo "1d:serial"
-time srun -n 1 --cpu-bind=cores ./stencil_serial --size $oneDimension_size --nt $oneDimension_iterations
+srun -n 1 --cpu-bind=cores ./stencil_serial --size $oneDimension_size --nt $oneDimension_iterations
 
