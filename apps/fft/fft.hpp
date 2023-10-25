@@ -209,7 +209,6 @@ public:
     switch (type) {
       case sig_type::square:
         sync_wait(bulk(start, N, [&](int n) {
-          for (int n = 0; n < N; ++n)
             y[n] = (n < N / 4 || n >= 3 * N/4) ? 1.0 : -1.0;
         }));
         break;
