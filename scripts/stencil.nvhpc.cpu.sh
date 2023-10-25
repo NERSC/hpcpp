@@ -46,6 +46,15 @@ T=(256 128 64 32 16 8 4 2 1)
 unset OMP_NUM_THREADS
 
 for i in "${T[@]}"; do
+    echo "1d:omp, threads=${i}"
+    srun -n 1 --cpu-bind=cores ./stencil_omp --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
+
+
+    echo "1d:stdexec, threads=${i}"
+    srun -n 1 --cpu-bind=cores ./stencil_stdexec --sch cpu --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
+done
+
+for i in "${T[@]}"; do
     echo "1d:stdpar, threads=${i}"
     export OMP_NUM_THREADS=${i}
     srun -n 1 --cpu-bind=cores ./stencil_stdpar --size $oneDimension_size --nt $oneDimension_iterations
