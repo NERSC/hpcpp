@@ -36,7 +36,6 @@
 [[nodiscard]] std::vector<data_t> fft_serial(const data_t *x, const int N, bool debug = false)
 {
     std::vector<data_t> x_r(N);
-    std::vector<uint32_t> id(N);
 
     // bit shift
     int shift = 32 - ilog2(N);
@@ -44,8 +43,7 @@
     // twiddle data in x[n]
     for (int k = 0; k < N; k++)
     {
-        id[k] = reverse_bits32(k) >> shift;
-        x_r[k] = x[id[k]];
+        x_r[k] = x[reverse_bits32(k) >> shift];
     }
 
     // niterations

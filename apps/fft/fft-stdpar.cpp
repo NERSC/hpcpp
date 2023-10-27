@@ -36,19 +36,16 @@
 [[nodiscard]] std::vector<data_t> fft(const data_t *x, const int N, bool debug = false)
 {
     std::vector<data_t> x_rev(N);
-    std::vector<uint32_t> ind(N);
 
     // create mdspans
     auto x_r  = std::mdspan<data_t, view_1d, std::layout_right>(x_rev.data(), N);
-    auto id   = std::mdspan<uint32_t, view_1d, std::layout_right>(ind.data(), N);
 
     // compute shift factor
     int shift = 32 - ilog2(N);
 
     // twiddle bits for fft
     std::for_each_n(std::execution::par_unseq, counting_iterator(0), N, [=](auto k){
-        id(k) = reverse_bits32(k) >> shift;
-        x_r(k) = x[id(k)];
+        x_r(k) = x[reverse_bits32(k) >> shift];
     });
 
     // niterations

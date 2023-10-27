@@ -37,10 +37,8 @@
 [[nodiscard]] std::vector<data_t> fft(const data_t *x, scheduler auto sch, const int N, const int max_threads, bool debug = false)
 {
     std::vector<data_t> x_rev(N);
-    std::vector<uint32_t> ind(N);
 
     data_t *x_r = x_rev.data();
-    uint32_t *id = ind.data();
 
     // compute shift factor
     int shift = 32 - ilog2(N);
@@ -49,8 +47,7 @@
     // twiddle bits for fft
     ex::sender auto twiddle =
         ex::bulk(begin, N, [=](int k){
-            id[k] = reverse_bits32(k) >> shift;
-            x_r[k] = x[id[k]];
+            x_r[k] = x[reverse_bits32(k) >> shift];
         });
     ex::sync_wait(std::move(twiddle));
 
