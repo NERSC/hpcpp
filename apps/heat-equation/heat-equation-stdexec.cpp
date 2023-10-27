@@ -47,8 +47,9 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
   std::cout << std::fixed << std::setprecision(1);
   std::cout << "HEQ progress: ";
 
-  auto heat_eq_init = ex::transfer_just(sch, phi_old)
-                      | ex::bulk(gsize, [=](int pos, auto phi_old) {
+  ex::sender auto begin = schedule(sch);
+
+  auto heat_eq_init = ex::bulk(begin, gsize, [=](int pos) {
                         int i = 1 + (pos / ncells);
                         int j = 1 + (pos % ncells);
 
@@ -74,9 +75,8 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
     // print progress
     std::cout << (100.0 * step)/nsteps << "%.." << std::flush;
 
-  static auto evolve = tx
-    | ex::bulk(phi_old_extent - nghosts,
-        [=](int pos, auto phi_old, auto phi_new, auto dx) {
+    static auto evolve = ex::bulk(begin, phi_old_extent - nghosts,
+        [=](int pos) {
           int i = pos + ghost_cells;
           int len = phi_old_extent;
           // fill boundary cells in old_phi
@@ -88,7 +88,7 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
               phi_old[(len - ghost_cells - 1) + (len * i)];
            })
     | ex::bulk(gsize,
-        [=](int pos, auto phi_old, auto phi_new, auto dx) {
+        [=](int pos) {
           int i = 1 + (pos / ncells);
           int j = 1 + (pos % ncells);
 
@@ -105,7 +105,7 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
                     phi_old[(i)*phi_old_extent + j - 1]) /
                        (dx[1] * dx[1]));
            })
-    | ex::bulk(gsize, [=](int pos, auto phi_old, auto phi_new, auto dx) {
+    | ex::bulk(gsize, [=](int pos) {
           int i = 1 + (pos / ncells);
           int j = 1 + (pos % ncells);
           phi_old[(i)*phi_old_extent + j] = phi_new[(i - 1) * ncells + (j - 1)];

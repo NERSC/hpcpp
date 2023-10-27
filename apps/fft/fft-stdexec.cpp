@@ -45,9 +45,10 @@
     // compute shift factor
     int shift = 32 - ilog2(N);
 
+    sender auto begin = schedule(sch);
     // twiddle bits for fft
-    ex::sender auto twiddle = ex::transfer_just(sch, x_r, x, id)
-        | ex::bulk(N, [=](int k, auto x_r, auto x, auto id){
+    ex::sender auto twiddle =
+        ex::bulk(begin, N, [=](int k){
             id[k] = reverse_bits32(k) >> shift;
             x_r[k] = x[id[k]];
         });
@@ -62,9 +63,6 @@
     // set cout precision
     std::cout << std::fixed << std::setprecision(1);
     std::cout << "FFT progress: ";
-
-    // transfer_just sender
-    ex::sender auto tx = ex::transfer_just(sch, x_r);
 
     // iterate until niters - lN*=2 after each iteration
     for (int it = 0; it < niters; it++, lN*=2)
@@ -87,7 +85,7 @@
         }
 
         // parallel compute lN-pt FFT
-        ex::sender auto merge = tx | ex::bulk(N/2, [=](auto k, auto y)
+        ex::sender auto merge = ex::bulk(begin, N/2, [=](auto k)
         {
             // compute indices
             int  e   = (k/tpp)*lN + (k % tpp);
@@ -95,9 +93,9 @@
             auto i   = (k % tpp);
 
             // compute 2-pt DFT
-            auto tmp = y[e] + y[o] * WNk(N, i * nparts);
-            y[o]     = y[e] - y[o] * WNk(N, i * nparts);
-            y[e]     = tmp;
+            auto tmp = x_r[e] + x_r[o] * WNk(N, i * nparts);
+            x_r[o]     = x_r[e] - x_r[o] * WNk(N, i * nparts);
+            x_r[e]     = tmp;
         });
 
         // wait for pipeline

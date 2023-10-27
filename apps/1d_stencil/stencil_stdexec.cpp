@@ -82,14 +82,13 @@ struct stepper {
         auto current_ptr = current_vec.data();
         auto next_ptr = next_vec.data();
 
-        stdexec::sender auto init = stdexec::transfer_just(sch, current_ptr) |
-                                    stdexec::bulk(size, [&](int i, auto& current_ptr) { current_ptr[i] = (Real_t)i; });
+        stdexec::sender auto begin = stdexec::schedule(sch);
+
+        stdexec::sender auto init = stdexec::bulk(begin, size, [=](int i) { current_ptr[i] = (Real_t)i; });
         stdexec::sync_wait(std::move(init));
 
         for (std::size_t t = 0; t != nt; ++t) {
-            auto sender =
-                stdexec::transfer_just(sch, current_ptr, next_ptr, k, dt, dx, size) |
-                stdexec::bulk(size, [&](int i, auto& current_ptr, auto& next_ptr, auto k, auto dt, auto dx, auto size) {
+            auto sender = stdexec::bulk(begin, size, [=](int i) {
                     std::size_t left = (i == 0) ? size - 1 : i - 1;
                     std::size_t right = (i == size - 1) ? 0 : i + 1;
                     next_ptr[i] = heat(current_ptr[left], current_ptr[i], current_ptr[right], k, dt, dx);
