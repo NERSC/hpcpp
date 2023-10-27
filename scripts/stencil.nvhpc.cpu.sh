@@ -33,7 +33,7 @@ ml cmake/3.24
 
 
 oneDimension_size=1000000000
-oneDimension_iterations=1000
+oneDimension_iterations=4000
 
 cmake .. -DSTDPAR=multicore -DOMP=multicore -DCMAKE_CXX_COMPILER=$(which nvc++)
 make -j

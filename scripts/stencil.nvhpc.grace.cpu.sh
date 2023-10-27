@@ -24,7 +24,7 @@ export PATH=/home/wwei/install/cmake_3_27_3/bin/:$PATH
 
 
 oneDimension_size=1000000000
-oneDimension_iterations=1000
+oneDimension_iterations=4000
 
 cmake .. -DCMAKE_BUILD_TYPE=Release -DSTDPAR=multicore -DOMP=multicore -DCMAKE_CXX_COMPILER=$(which nvc++)
 make -j
