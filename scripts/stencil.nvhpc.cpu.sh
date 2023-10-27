@@ -3,7 +3,7 @@
 #SBATCH -A nstaff
 #SBATCH -C cpu
 #SBATCH --qos=regular
-#SBATCH --time=6:00:00
+#SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=128
@@ -47,21 +47,21 @@ unset OMP_NUM_THREADS
 
 for i in "${T[@]}"; do
     echo "1d:omp, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./stencil_omp --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
+    srun -n 1 --cpu-bind=none ./stencil_omp --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
 
 
     echo "1d:stdexec, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./stencil_stdexec --sch cpu --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
+    srun -n 1 --cpu-bind=none ./stencil_stdexec --sch cpu --size $oneDimension_size --nt $oneDimension_iterations --nthreads=$i
 done
 
 for i in "${T[@]}"; do
     echo "1d:stdpar, threads=${i}"
     export OMP_NUM_THREADS=${i}
-    srun -n 1 --cpu-bind=cores ./stencil_stdpar --size $oneDimension_size --nt $oneDimension_iterations
+    srun -n 1 --cpu-bind=none ./stencil_stdpar --size $oneDimension_size --nt $oneDimension_iterations
 done
 
 unset OMP_NUM_THREADS
 
 echo "1d:serial"
-srun -n 1 --cpu-bind=cores ./stencil_serial --size $oneDimension_size --nt $oneDimension_iterations
+srun -n 1 --cpu-bind=none ./stencil_serial --size $oneDimension_size --nt $oneDimension_iterations
 

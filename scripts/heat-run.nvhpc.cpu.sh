@@ -9,7 +9,7 @@
 #SBATCH -A nstaff
 #SBATCH -C cpu
 #SBATCH --qos=regular
-#SBATCH --time=4:00:00
+#SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=128
@@ -46,19 +46,19 @@ unset OMP_NUM_THREADS
 
 for i in "${T[@]}"; do
     echo "heat:omp, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./heat-equation-omp -s=1000 -n=46000 --time --nthreads=${i}
+    srun -n 1 --cpu-bind=none ./heat-equation-omp -s=1000 -n=46000 --time --nthreads=${i}
 
     echo "heat:stdexec, threads=${i}"
-    srun -n 1 --cpu-bind=cores ./heat-equation-stdexec -s=1000 -n=46000 --time --nthreads=${i}
+    srun -n 1 --cpu-bind=none ./heat-equation-stdexec -s=1000 -n=46000 --time --nthreads=${i}
 done
 
 for i in "${T[@]}"; do
     echo "heat:stdpar, threads=${i}"
     export OMP_NUM_THREADS=${i}
-    srun -n 1 --cpu-bind=cores ./heat-equation-stdpar -s=1000 -n=46000 --time
+    srun -n 1 --cpu-bind=none ./heat-equation-stdpar -s=1000 -n=46000 --time
 done
 
 unset OMP_NUM_THREADS
 
 echo "heat:serial"
-srun -n 1 --cpu-bind=cores ./heat-equation-serial -s=1000 -n=46000 --time
+srun -n 1 --cpu-bind=none ./heat-equation-serial -s=1000 -n=46000 --time
