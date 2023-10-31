@@ -30,6 +30,7 @@
 
 #define FFT_STDEXEC
 #include "fft.hpp"
+#include "repeat_n/repeat_n.cuh"
 
 //
 // fft algorithm
@@ -43,68 +44,56 @@
     // compute shift factor
     int shift = 32 - ilog2(N);
 
-    sender auto begin = schedule(sch);
+    // set cout precision
+    std::cout << std::fixed << std::setprecision(1);
+    std::cout << "FFT progress: " << std::flush;
+
     // twiddle bits for fft
     ex::sender auto twiddle =
-        ex::bulk(begin, N, [=](int k){
-            x_r[k] = x[reverse_bits32(k) >> shift];
+        ex::bulk(schedule(sch), N, [=](int k){
+            auto new_idx = reverse_bits32(k) >> shift;
+            x_r[k] = x[new_idx];
         });
     ex::sync_wait(std::move(twiddle));
+
+    // mark progress of the twiddle stage
+    std::cout << "50%.." << std::flush;
 
     // niterations
     int niters = ilog2(N);
 
-    // local merge partition size
-    int lN = 2;
-
-    // set cout precision
-    std::cout << std::fixed << std::setprecision(1);
-    std::cout << "FFT progress: ";
+    // pointer to local partition size (must be dynamic mem to be copied to GPU)
+    int *lN_ptr = new int(1);
 
     // iterate until niters - lN*=2 after each iteration
-    for (int it = 0; it < niters; it++, lN*=2)
-    {
-        // print progress
-        std::cout << (100.0 * it)/niters << "%.." << std::flush;
+    ex::sender auto merge = ex::just() | exec::on(sch,
+           repeat_n(
+             niters,
+             ex::then([=](){ *lN_ptr *= 2;})
+             | ex::bulk(N/2, [=](int k) {
+                // extract lN from pointer
+                int lN = *lN_ptr;
 
-        // debugging timer
-        static Timer dtimer;
+                // number of partitions
+                int nparts = N/lN;
+                int tpp = lN/2;
 
-        // number of partitions
-        int nparts = N/lN;
-        int tpp = lN/2;
+                // compute indices
+                int  e   = (k/tpp)*lN + (k % tpp);
+                auto o   = e + tpp;
+                auto i   = (k % tpp);
 
-        // display info only if debugging
-        if (debug)
-        {
-            dtimer.start();
-            std::cout << "lN = " << lN << ", npartitions = " << nparts << ", partition size = " << tpp << std::endl;
-        }
+                // compute 2-pt DFT
+                auto tmp = x_r[e] + x_r[o] * WNk(N, i * nparts);
+                x_r[o]     = x_r[e] - x_r[o] * WNk(N, i * nparts);
+                x_r[e]     = tmp;
+            })));
 
-        // parallel compute lN-pt FFT
-        ex::sender auto merge = ex::bulk(begin, N/2, [=](auto k)
-        {
-            // compute indices
-            int  e   = (k/tpp)*lN + (k % tpp);
-            auto o   = e + tpp;
-            auto i   = (k % tpp);
-
-            // compute 2-pt DFT
-            auto tmp = x_r[e] + x_r[o] * WNk(N, i * nparts);
-            x_r[o]     = x_r[e] - x_r[o] * WNk(N, i * nparts);
-            x_r[e]     = tmp;
-        });
-
-        // wait for pipeline
-        ex::sync_wait(std::move(merge));
-
-        // print only if debugging
-        if (debug)
-            std::cout << "This iter time: " << dtimer.stop() << " ms" << std::endl;
-    }
+    // wait for pipeline
+    ex::sync_wait(std::move(merge));
 
     // print final progress mark
-    std::cout << "100%" << std::endl;
+    std::cout << "100%" << std::flush << std::endl;
 
     // return x_rev = fft(x_r)
     return x_rev;

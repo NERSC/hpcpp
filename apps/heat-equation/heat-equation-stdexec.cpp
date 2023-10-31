@@ -30,6 +30,7 @@
 
 #define HEQ_STDEXEC
 #include "heat-equation.hpp"
+#include "repeat_n/repeat_n.cuh"
 
 // 2D jacobi algorithm pipeline
 void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t *dx, Real_t dt, Real_t alpha, int nsteps, int ncells, bool print = false)
@@ -68,54 +69,54 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
   if (print)
     printGrid(phi_old, ncells + nghosts);
 
-  ex::sender auto tx = ex::transfer_just(sch, phi_old, phi_new, dx);
+  auto fillBoundary = [=](int pos) {
+                int i = pos + ghost_cells;
+                int len = phi_old_extent;
+                // fill boundary cells in old_phi
+                phi_old[i] = phi_old[i + (ghost_cells * len)];
+                phi_old[i + (len * (len - ghost_cells))] =
+                phi_old[i + (len * (len - ghost_cells - 1))];
+                phi_old[i * len] = phi_old[(ghost_cells * len) + i];
+                phi_old[(len - ghost_cells) + (len * i)] =
+                phi_old[(len - ghost_cells - 1) + (len * i)];
+            };
 
-  // evolve the system
-  for (auto step = 0; step < nsteps; step++) {
-    // print progress
-    std::cout << (100.0 * step)/nsteps << "%.." << std::flush;
+  auto jacobi = [=](int pos) {
+                int i = 1 + (pos / ncells);
+                int j = 1 + (pos % ncells);
 
-    static auto evolve = ex::bulk(begin, phi_old_extent - nghosts,
-        [=](int pos) {
-          int i = pos + ghost_cells;
-          int len = phi_old_extent;
-          // fill boundary cells in old_phi
-          phi_old[i] = phi_old[i + (ghost_cells * len)];
-          phi_old[i + (len * (len - ghost_cells))] =
-              phi_old[i + (len * (len - ghost_cells - 1))];
-          phi_old[i * len] = phi_old[(ghost_cells * len) + i];
-          phi_old[(len - ghost_cells) + (len * i)] =
-              phi_old[(len - ghost_cells - 1) + (len * i)];
-           })
-    | ex::bulk(gsize,
-        [=](int pos) {
-          int i = 1 + (pos / ncells);
-          int j = 1 + (pos % ncells);
-
-          // Jacobi iteration
-          phi_new[(i - 1) * ncells + j - 1] =
-              phi_old[(i)*phi_old_extent + j] +
-              alpha * dt *
-                  ((phi_old[(i + 1) * phi_old_extent + j] -
+                // Jacobi iteration
+                phi_new[(i - 1) * ncells + j - 1] =
+                    phi_old[(i)*phi_old_extent + j] +
+                    alpha * dt *
+                    ((phi_old[(i + 1) * phi_old_extent + j] -
                     2.0 * phi_old[(i)*phi_old_extent + j] +
                     phi_old[(i - 1) * phi_old_extent + j]) /
-                       (dx[0] * dx[0]) +
-                   (phi_old[(i)*phi_old_extent + j + 1] -
+                      (dx[0] * dx[0]) +
+                    (phi_old[(i)*phi_old_extent + j + 1] -
                     2.0 * phi_old[(i)*phi_old_extent + j] +
                     phi_old[(i)*phi_old_extent + j - 1]) /
                        (dx[1] * dx[1]));
-           })
-    | ex::bulk(gsize, [=](int pos) {
-          int i = 1 + (pos / ncells);
-          int j = 1 + (pos % ncells);
-          phi_old[(i)*phi_old_extent + j] = phi_new[(i - 1) * ncells + (j - 1)];
-    });
+            };
 
-    ex::sync_wait(std::move(evolve));
+  auto parallelCopy = [=](int pos) {
+                int i = 1 + (pos / ncells);
+                int j = 1 + (pos % ncells);
+                phi_old[(i)*phi_old_extent + j] = phi_new[(i - 1) * ncells + (j - 1)];
+            };
 
-    // update the simulation time
-    time += dt;
-  }
+  // evolve the system
+  ex::sender auto evolve = ex::just() | exec::on(sch,
+           repeat_n(
+             nsteps,
+             ex::bulk(phi_old_extent - nghosts, [=](int k) { fillBoundary(k); })
+            | ex::bulk(gsize, [=](int k) { jacobi(k); })
+            | ex::bulk(gsize, [=](int k) { parallelCopy(k); })));
+
+  // update the simulation time
+  time += nsteps * dt;
+
+  ex::sync_wait(std::move(evolve));
 
   // print final progress mark
   std::cout << "100%" << std::endl;

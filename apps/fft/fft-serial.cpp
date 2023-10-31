@@ -43,7 +43,8 @@
     // twiddle data in x[n]
     for (int k = 0; k < N; k++)
     {
-        x_r[k] = x[reverse_bits32(k) >> shift];
+        auto new_idx = reverse_bits32(k) >> shift;
+        x_r[k] = x[new_idx];
     }
 
     // niterations

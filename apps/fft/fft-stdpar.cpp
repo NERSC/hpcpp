@@ -45,7 +45,8 @@
 
     // twiddle bits for fft
     std::for_each_n(std::execution::par_unseq, counting_iterator(0), N, [=](auto k){
-        x_r(k) = x[reverse_bits32(k) >> shift];
+        auto new_idx = reverse_bits32(k) >> shift;
+        x_r(k) = x[new_idx];
     });
 
     // niterations
