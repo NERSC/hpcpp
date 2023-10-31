@@ -35,6 +35,7 @@
 
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
+#include "repeat_n/repeat_n.cuh"
 
 // parameters
 struct args_params_t : public argparse::Args {
@@ -68,39 +69,39 @@ constexpr Real_t dx = 1.;      // grid spacing
 //[stepper_1
 struct stepper {
 
-    // Our operator
-    Real_t heat(Real_t left, Real_t middle, Real_t right, const Real_t k = ::k, const Real_t dt = ::dt,
-                const Real_t dx = ::dx) {
-        return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
-    }
-
     // do all the work on 'size' data points for 'nt' time steps
     [[nodiscard]] std::vector<Real_t> do_work(const auto& sch, std::size_t size, std::size_t nt) {
-        std::vector<Real_t> current_vec(size);
-        std::vector<Real_t> next_vec(size);
+        std::vector<Real_t> current(size);
+        std::vector<Real_t> next(size);
 
-        auto current_ptr = current_vec.data();
-        auto next_ptr = next_vec.data();
+        Real_t **next_ptr_ptr = new Real_t *(next.data());
+        Real_t **current_ptr_ptr = new Real_t*(current.data());
 
-        stdexec::sender auto begin = stdexec::schedule(sch);
-
-        stdexec::sender auto init = stdexec::bulk(begin, size, [=](int i) { current_ptr[i] = (Real_t)i; });
+        stdexec::sender auto init = stdexec::bulk(stdexec::schedule(sch), size, [=](int i) { auto current_ptr = *current_ptr_ptr; ; current_ptr[i] = (Real_t)i; });
         stdexec::sync_wait(std::move(init));
 
-        for (std::size_t t = 0; t != nt; ++t) {
-            auto sender = stdexec::bulk(begin, size, [=](int i) {
+        // evolve the system
+        ex::sender auto evolve = ex::just() | exec::on(sch,
+           repeat_n(
+             nt,
+             stdexec::bulk(size, [=](int i) {
+                    auto current_ptr = *current_ptr_ptr;
+                    auto next_ptr = *next_ptr_ptr;
+
                     std::size_t left = (i == 0) ? size - 1 : i - 1;
                     std::size_t right = (i == size - 1) ? 0 : i + 1;
-                    next_ptr[i] = heat(current_ptr[left], current_ptr[i], current_ptr[right], k, dt, dx);
-                });
-            stdexec::sync_wait(std::move(sender));
-            std::swap(current_ptr, next_ptr);
-        }
+                    next_ptr[i] = current_ptr[i] + (k * dt / (dx * dx)) * (current_ptr[left] - 2 * current_ptr[i] + current_ptr[right]);
+                })
+            | stdexec::then([=]() { std::swap(*next_ptr_ptr, *current_ptr_ptr); })
+            ));
+
+        // wait for evolve
+        stdexec::sync_wait(std::move(evolve));
 
         if (nt % 2 == 0) {
-            return current_vec;
+            return current;
         }
-        return next_vec;
+        return next;
     }
 };
 

@@ -1,7 +1,7 @@
 /*
  * MIT License
  *
- * Copyright (c) 2023 Weile Wei 
+ * Copyright (c) 2023 Weile Wei
  * Copyright (c) 2023 The Regents of the University of California,
  * through Lawrence Berkeley National Laboratory (subject to receipt of any
  * required approvals from the U.S. Dept. of Energy).All rights reserved.
@@ -65,7 +65,7 @@ struct stepper {
     return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
   }
 
-  // do all the work on 'size' data points for 'nt' time steps 
+  // do all the work on 'size' data points for 'nt' time steps
   [[nodiscard]] space do_work(const std::size_t size, const std::size_t nt) {
     Real_t* current_ptr = new Real_t[size];
     Real_t* next_ptr = new Real_t[size];
@@ -107,6 +107,7 @@ int benchmark(args_params_t const& args) {
     for (std::size_t i = 0; i != size; ++i) {
       std::cout << solution[i] << " ";
     }
+    std::cout << "\n";
   }
 
   if (args.time) {
