@@ -107,48 +107,9 @@ struct fft_params_t : public argparse::Args {
   bool& debug = flag("d,debug", "print internal timers and launch configs");
 };
 
-inline bool isPowOf2(long long int x) {
-  return !(x == 0) && !(x & (x - 1));
-}
-
-template <typename T>
-void printVec(T &vec, int len)
-{
-    std::cout << "[ ";
-    for (int i = 0; i < len; i++)
-      std::cout << vec[i] << " ";
-
-    std::cout << "]" << std::endl;
-}
-
 inline std::complex<Real_t> WNk(int N, int k)
 {
     return std::complex<Real_t>(exp(-2*M_PI*1/N*k*1i));
-}
-
-inline int ceilPowOf2(unsigned int v)
-{
-  return static_cast<int>(std::bit_ceil(v));
-}
-
-inline int ilog2(uint32_t x)
-{
-    return static_cast<int>(log2(x));
-}
-
-bool complex_compare(data_t a, data_t b, double error = 0.0101)
-{
-  auto r = (fabs(a.real() - b.real()) < error)? true: false;
-  return r && (fabs(a.imag() - b.imag()) < error)? true: false;
-}
-
-uint32_t reverse_bits32(uint32_t x)
-{
-    x = ((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1);
-    x = ((x & 0xcccccccc) >> 2) | ((x & 0x33333333) << 2);
-    x = ((x & 0xf0f0f0f0) >> 4) | ((x & 0x0f0f0f0f) << 4);
-    x = ((x & 0xff00ff00) >> 8) | ((x & 0x00ff00ff) << 8);
-    return (x >> 16) | (x << 16);
 }
 
 class signal

@@ -33,3 +33,9 @@ add_subdirectory(choleskey)
 # ----------------------------------------------------------------------------------------#
 message(STATUS "Adding fft...")
 add_subdirectory(fft)
+
+# ----------------------------------------------------------------------------------------#
+# Add block segmented prefixSum
+# ----------------------------------------------------------------------------------------#
+message(STATUS "Adding prefixSum...")
+add_subdirectory(prefixSum)
