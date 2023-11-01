@@ -36,9 +36,9 @@
 // stdexec prefixSum function
 //
 template <typename T>
-[[nodiscard]] ull_t* prefixSum(scheduler auto &&sch, const T *in, const int N)
+[[nodiscard]] data_t* prefixSum(scheduler auto &&sch, const T *in, const int N)
 {
-    ull_t *y = new ull_t[N+1];
+    data_t *y = new data_t[N+1];
 
     // memcpy to output vector
     ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k){ y[k] = in[k]; }));
@@ -147,7 +147,7 @@ int main(int argc, char* argv[])
     // start the timer
     Timer timer;
 
-    ull_t *out = nullptr;
+    data_t *out = nullptr;
 
     // initialize stdexec scheduler
     sch_t scheduler = get_sch_enum(sched);

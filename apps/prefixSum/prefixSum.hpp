@@ -48,8 +48,7 @@ using namespace stdexec;
 namespace ex = stdexec;
 
 // data type
-using data_t = int;
-using ull_t = unsigned long long;
+using data_t = unsigned long long;
 
 // input arguments
 struct prefixSum_params_t : public argparse::Args {
@@ -75,13 +74,21 @@ namespace psum
 {
 
 template <typename T>
-[[nodiscard]] bool validatePrefixSum(T *in, ull_t *out, size_t N)
+[[nodiscard]] bool validatePrefixSum(T *in, data_t *out, size_t N)
 {
     std::cout << std:: endl << "Validating: ";
 
-    ull_t *test = new ull_t[N];
+    data_t *test = new data_t[N];
 
     std::inclusive_scan(std::execution::par, in, in + N, test, std::plus<>());
+
+    for (int k = 0; k < N; k++)
+    {
+      if(out[k] != test[k])
+      {
+        std::cout <<  "out[" << k << "]=" << out[k] << ", test[" << k<<"]=" << test[k] << std::endl;
+      }
+    }
     auto ret = std::equal(std::execution::par, out, out + N, test);
 
     delete[] test;

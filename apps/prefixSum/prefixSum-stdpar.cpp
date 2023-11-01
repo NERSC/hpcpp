@@ -34,9 +34,9 @@
 // serial prefixSum function
 //
 template <typename T>
-[[nodiscard]] ull_t* prefixSum_stdpar(const T *in, const int N)
+[[nodiscard]] data_t* prefixSum_stdpar(const T *in, const int N)
 {
-    ull_t *y = new ull_t[N];
+    data_t *y = new data_t[N];
     std::inclusive_scan(std::execution::par, in, in + N, y, std::plus<>());
     return y;
 }
@@ -62,8 +62,16 @@ int main(int argc, char* argv[])
     bool print_time = args.print_time;
     bool validate = args.validate;
 
+    if (!isPowOf2(N))
+    {
+        N = ceilPowOf2(N);
+        std::cout << "INFO: N != pow(2). Setting => N = " << N << std::endl;
+    }
+
     // input data
     data_t *in = new data_t[N];
+
+    std::cout << "Progress:0%" << std::flush;
 
     // random number generator
     std::random_device rd;
@@ -73,6 +81,8 @@ int main(int argc, char* argv[])
     // fill random between 1 to 10
     std::generate(std::execution::seq, in, in+N, [&]() { return dist(gen); });
 
+    std::cout << "..50%" << std::flush;
+
     // start the timer
     Timer timer;
 
@@ -81,6 +91,8 @@ int main(int argc, char* argv[])
 
     // stop timer
     auto elapsed = timer.stop();
+
+    std::cout << "..100%" << std::endl << std::flush;
 
     // print the input and its prefix sum (don't if N > 100)
     if (print_arr && N < 100)
