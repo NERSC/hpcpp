@@ -46,56 +46,11 @@ template <typename T>
     int niters = ilog2(N);
     int *d_ptr = new int(0);
 
-    for (int i = 0; i < niters; i++)
-    {
-        ex::sync_wait(ex::schedule(sch)
-        | ex::bulk(N/2, [=](int k){
-            int d = *d_ptr;
-            int s1 = 1 << d+1;
-            int s2 = 1 << d;
-            int my = (k+1) * s1 - 1;
-            bool isActive = (k < N/s1);
-
-            // only update the participating indices
-            if (isActive)
-                y[my] += y[my-s2];
-        })
-        | ex::then([=](){ *d_ptr += 1; })
-        );
-    }
-
-    y[N] = y[N-1];
-    y[N-1] = 0;
-    *d_ptr = niters-1;
-
-    for (int i = 0; i < niters; i++)
-    {
-        ex::sync_wait(ex::schedule(sch)
-        | ex::bulk(N/2, [=](int k){
-            int d = *d_ptr;
-            int s1 = 1 << d+1;
-            int s2 = 1 << d;
-            int my = (k+1) * s1 - 1;
-            bool isActive = (k < N/s1);
-
-             // only update the participating indices
-            if (isActive)
-            {
-                auto tmp = y[my];
-                y[my] += y[my-s2];
-                y[my-s2] = tmp;
-            }
-        })
-        | ex::then([=](){ *d_ptr -= 1; })
-        );
-    }
-
-#if 0
     // GE Blelloch (1990) algorithm
-    ex::sender auto pSum = ex::just()
     // upsweep algorithm
+    ex::sender auto uSweep = ex::just()
     | exec::on(sch,
-        repeat_n(niters, ex::bulk(N/2, [=](int k){
+       repeat_n(niters, ex::bulk(N/2, [=](int k){
             int d = *d_ptr;
             int s1 = 1 << d+1;
             int s2 = 1 << d;
@@ -104,23 +59,24 @@ template <typename T>
 
             // only update the participating indices
             if (isActive)
-            {
-                auto tmp = y[my];
                 y[my] += y[my-s2];
-                y[my-s2] = tmp;
-            }
         })
         | ex::then([=](){ *d_ptr += 1; })
-    )
-    // write last element to zero
-    | ex::then([=](){
+    ));
+
+    ex::sync_wait(uSweep);
+
+    // write sum to y[N] and reset vars
+    ex::sync_wait(schedule(sch) | ex::then([=](){
         y[N] = y[N-1];
         y[N-1] = 0;
         *d_ptr = niters-1;
-    })
+    }));
+
     // downsweep algorithm
+    ex::sender auto dSweep = ex::just()
     | exec::on(sch,
-        repeat_n(niters, ex::bulk(N/2, [=](int k){
+       repeat_n(niters, ex::bulk(N/2, [=](int k){
             int d = *d_ptr;
             int s1 = 1 << d+1;
             int s2 = 1 << d;
@@ -137,11 +93,10 @@ template <typename T>
 
         })
         | ex::then([=](){ *d_ptr -= 1; })
-    )
     ));
 
-    ex::sync_wait(pSum);
-#endif
+    ex::sync_wait(dSweep);
+
     return y;
 }
 
