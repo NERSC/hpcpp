@@ -43,9 +43,54 @@ template <typename T>
     // memcpy to output vector
     ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k){ y[k] = in[k]; }));
 
-    int niters = ceilPowOf2(N);
+    int niters = ilog2(N);
     int *d_ptr = new int(0);
 
+    for (int i = 0; i < niters; i++)
+    {
+        ex::sync_wait(ex::schedule(sch)
+        | ex::bulk(N/2, [=](int k){
+            int d = *d_ptr;
+            int s1 = 1 << d+1;
+            int s2 = 1 << d;
+            int my = (k+1) * s1 - 1;
+            bool isActive = (k < N/s1);
+
+            // only update the participating indices
+            if (isActive)
+                y[my] += y[my-s2];
+        })
+        | ex::then([=](){ *d_ptr += 1; })
+        );
+    }
+
+    y[N] = y[N-1];
+    y[N-1] = 0;
+    *d_ptr = niters-1;
+
+    for (int i = 0; i < niters; i++)
+    {
+        ex::sync_wait(ex::schedule(sch)
+        | ex::bulk(N/2, [=](int k){
+            int d = *d_ptr;
+            int s1 = 1 << d+1;
+            int s2 = 1 << d;
+            int my = (k+1) * s1 - 1;
+            bool isActive = (k < N/s1);
+
+             // only update the participating indices
+            if (isActive)
+            {
+                auto tmp = y[my];
+                y[my] += y[my-s2];
+                y[my-s2] = tmp;
+            }
+        })
+        | ex::then([=](){ *d_ptr -= 1; })
+        );
+    }
+
+#if 0
     // GE Blelloch (1990) algorithm
     ex::sender auto pSum = ex::just()
     // upsweep algorithm
@@ -55,10 +100,15 @@ template <typename T>
             int s1 = 1 << d+1;
             int s2 = 1 << d;
             int my = (k+1) * s1 - 1;
+            bool isActive = (k < N/s1);
 
             // only update the participating indices
-            if (my < N)
+            if (isActive)
+            {
+                auto tmp = y[my];
                 y[my] += y[my-s2];
+                y[my-s2] = tmp;
+            }
         })
         | ex::then([=](){ *d_ptr += 1; })
     )
@@ -75,9 +125,10 @@ template <typename T>
             int s1 = 1 << d+1;
             int s2 = 1 << d;
             int my = (k+1) * s1 - 1;
+            bool isActive = (k < N/s1);
 
             // only update the participating indices
-            if (my < N)
+            if (isActive)
             {
                 auto tmp = y[my];
                 y[my] += y[my-s2];
@@ -90,7 +141,7 @@ template <typename T>
     ));
 
     ex::sync_wait(pSum);
-
+#endif
     return y;
 }
 
@@ -117,6 +168,12 @@ int main(int argc, char* argv[])
     std::string sched = args.sch;
     int max_threads = args.max_threads;
 
+    if (!isPowOf2(N))
+    {
+        N = ceilPowOf2(N);
+        std::cout << "INFO: N != pow(2). Setting => N = " << N << std::endl;
+    }
+
     // input data
     data_t *in = new data_t[N];
 
@@ -125,8 +182,12 @@ int main(int argc, char* argv[])
     std::mt19937 gen(rd());
     std::uniform_int_distribution<data_t> dist(1, 10);
 
+    std::cout << "Progress:0%" << std::flush;
+
     // fill random between 1 to 10
-    std::generate(std::execution::seq, in, in+N, [&]() { return dist(gen); });
+    std::generate(in, in+N, [&]() { return dist(gen); });
+
+    std::cout << "..50%" << std::flush;
 
     // start the timer
     Timer timer;
@@ -156,12 +217,14 @@ int main(int argc, char* argv[])
     // stop timer
     auto elapsed = timer.stop();
 
+    std::cout << "..100%" << std::endl << std::flush;
+
     // print the input and its prefix sum (don't if N > 100)
     if (print_arr && N < 100)
     {
-        std::cout << std::endl << "in  = ";
+        std::cout << std::endl << "in  = " << std::flush;
         printVec(in, N);
-        std::cout << std::endl << "out = ";
+        std::cout << std::endl << "out = " << std::flush;
         auto optr = out + 1;
         printVec(optr, N);
         std::cout << std::endl;
