@@ -54,7 +54,7 @@ using data_t = unsigned long long;
 struct prefixSum_params_t : public argparse::Args {
   int& N = kwarg("N", "array size").set_default(1e9);
   bool& print_arr = flag("p,print", "print array and prefixSum");
-  int& max_threads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
+  int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 
 #if defined(PSUM_STDEXEC)
   std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
@@ -72,28 +72,28 @@ struct prefixSum_params_t : public argparse::Args {
 
 namespace psum
 {
-
 template <typename T>
 [[nodiscard]] bool validatePrefixSum(T *in, data_t *out, size_t N)
 {
     std::cout << std:: endl << "Validating: ";
 
-    data_t *test = new data_t[N];
+    // compute inclusive_scan via parSTL
+    std::vector<data_t> test(N);
+    std::inclusive_scan(std::execution::par, in, in + N, test.begin(), std::plus<>());
 
-    std::inclusive_scan(std::execution::par, in, in + N, test, std::plus<>());
-
-    for (int k = 0; k < N; k++)
-    {
-      if(out[k] != test[k])
-      {
-        std::cout <<  "out[" << k << "]=" << out[k] << ", test[" << k<<"]=" << test[k] << std::endl;
-      }
-    }
-    auto ret = std::equal(std::execution::par, out, out + N, test);
-
-    delete[] test;
-
-    return ret;
+    // check if equal
+    return std::equal(std::execution::par, out, out + N, test.begin());
 }
 
+template <typename T>
+void genRandomVector(T *in, int N, T lower, T upper)
+{
+    // random number generator
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<T> dist(lower, upper);
+
+    // fill random between 1 to 10
+    std::generate(std::execution::seq, in, in+N, [&gen,&dist]() { return dist(gen); });
+}
 }

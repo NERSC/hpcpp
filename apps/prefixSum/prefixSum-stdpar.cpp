@@ -34,10 +34,10 @@
 // serial prefixSum function
 //
 template <typename T>
-[[nodiscard]] data_t* prefixSum_stdpar(const T *in, const int N)
+[[nodiscard]] T * prefixSum_stdpar(const T *in, const int N)
 {
-    data_t *y = new data_t[N];
-    std::inclusive_scan(std::execution::par, in, in + N, y, std::plus<>());
+    T * y = new T[N];
+    std::inclusive_scan(std::execution::par, in, in+N, y, std::plus<>());
     return y;
 }
 
@@ -69,25 +69,23 @@ int main(int argc, char* argv[])
     }
 
     // input data
-    data_t *in = new data_t[N];
+    data_t * in = new data_t[N];
 
     std::cout << "Progress:0%" << std::flush;
 
     // random number generator
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<data_t> dist(1, 10);
-
-    // fill random between 1 to 10
-    std::generate(std::execution::seq, in, in+N, [&]() { return dist(gen); });
+    psum::genRandomVector(in, N, (data_t)0, (data_t)10);
 
     std::cout << "..50%" << std::flush;
+
+    // output pointer
+    data_t * out = nullptr;
 
     // start the timer
     Timer timer;
 
-    // stdpar prefixSum
-    auto &&out = prefixSum_stdpar(in, N);
+    // serial prefixSum
+    out = prefixSum_stdpar(in, N);
 
     // stop timer
     auto elapsed = timer.stop();
@@ -97,10 +95,9 @@ int main(int argc, char* argv[])
     // print the input and its prefix sum (don't if N > 100)
     if (print_arr && N < 100)
     {
-        std::cout << std::endl << "in  = ";
+        std::cout << std::endl << "in  = " << std::flush;
         printVec(in, N);
-
-        std::cout << std::endl << "out = ";
+        std::cout << std::endl << "out = " << std::flush;
         printVec(out, N);
         std::cout << std::endl;
     }
@@ -122,8 +119,10 @@ int main(int argc, char* argv[])
         std::cout << std::endl;
     }
 
+    // delete in and out
     delete[] in;
     delete[] out;
 
+    // return status
     return 0;
 }

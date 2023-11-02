@@ -28,16 +28,84 @@
  * commons for the prefixSum codes
  */
 
+#define PSUM_STDEXEC
 #include "prefixSum.hpp"
+#include "repeat_n/repeat_n.cuh"
 
 //
-// serial prefixSum function
+// stdexec prefixSum function
 //
 template <typename T>
-[[nodiscard]] T * prefixSum_serial(const T *in, const int N)
+[[nodiscard]] T* prefixSum(scheduler auto &&sch, const T* in, const int N)
 {
-    T * y = new T[N];
-    std::inclusive_scan(std::execution::seq, in, in + N, y, std::plus<>());
+    // allocate a N+1 size array as there will be a trailing zero
+    T *y = new T[N+1];
+
+    // number of iterations
+    int niters = ilog2(N);
+
+    // need to be dynamic memory to be able to use it in gpu ctx.
+    int *d_ptr = new int(0);
+
+    // memcpy to output vector to start computation.
+    ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k){ y[k] = in[k]; }));
+
+    // GE Blelloch (1990) algorithm from pseudocode at:
+    // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+
+    // upsweep
+    for (int d = 0; d < niters; d++)
+    {
+        int bsize = N/(1 << d+1);
+
+        ex::sender auto uSweep = schedule(sch)
+            | ex::bulk(bsize, [=](int k) {
+                // stride1 = 2^(d+1)
+                int st1 = 1 << d+1;
+                // stride2 = 2^d
+                int st2 = 1 << d;
+                // only the threads at indices (k+1) * 2^(d+1) -1 will compute
+                int myIdx = (k+1) * st1 - 1;
+
+                // update y[myIdx]
+                y[myIdx] += y[myIdx-st2];
+            }
+        );
+        // wait for upsweep
+        ex::sync_wait(uSweep);
+    }
+
+    // write sum to y[N] and reset vars
+    ex::sync_wait(schedule(sch) | ex::then([=](){
+        y[N] = y[N-1];
+        y[N-1] = 0;
+    }));
+
+    // downsweep
+    for (int d = niters-1; d >= 0; d--)
+    {
+        int bsize = N/(1 << d+1);
+
+        ex::sender auto dSweep = schedule(sch)
+            | ex::bulk(bsize, [=](int k){
+            // stride1 = 2^(d+1)
+            int st1 = 1 << d+1;
+            // stride2 = 2^d
+            int st2 = 1 << d;
+            // only the threads at indices (k+1) * 2^(d+1) -1 will compute
+            int myIdx = (k+1) * st1 - 1;
+
+            // update y[myIdx] and y[myIdx-stride2]
+            auto tmp = y[myIdx];
+            y[myIdx] += y[myIdx-st2];
+            y[myIdx-st2] = tmp;
+        });
+
+        // wait for downsweep
+        ex::sync_wait(dSweep);
+    }
+
+    // return the computed results.
     return y;
 }
 
@@ -61,6 +129,8 @@ int main(int argc, char* argv[])
     bool print_arr = args.print_arr;
     bool print_time = args.print_time;
     bool validate = args.validate;
+    std::string sched = args.sch;
+    int nthreads = args.nthreads;
 
     if (!isPowOf2(N))
     {
@@ -84,8 +154,25 @@ int main(int argc, char* argv[])
     // start the timer
     Timer timer;
 
-    // serial prefixSum
-    out = prefixSum_serial(in, N);
+    // initialize stdexec scheduler
+    sch_t scheduler = get_sch_enum(sched);
+
+    // launch with appropriate stdexec scheduler
+    switch (scheduler) {
+        case sch_t::CPU:
+            out = prefixSum(exec::static_thread_pool(nthreads).get_scheduler(), in, N);
+            break;
+#if defined(USE_GPU)
+        case sch_t::GPU:
+            out = prefixSum(nvexec::stream_context().get_scheduler(), in, N);
+            break;
+        case sch_t::MULTIGPU:
+            out = prefixSum(nvexec::multi_gpu_stream_context().get_scheduler(), in, N);
+            break;
+#endif // USE_GPU
+        default:
+            throw std::runtime_error("Run: `prefixSum-stdexec --help` to see the list of available schedulers");
+  }
 
     // stop timer
     auto elapsed = timer.stop();
@@ -98,7 +185,8 @@ int main(int argc, char* argv[])
         std::cout << std::endl << "in  = " << std::flush;
         printVec(in, N);
         std::cout << std::endl << "out = " << std::flush;
-        printVec(out, N);
+        auto optr = out + 1;
+        printVec(optr, N);
         std::cout << std::endl;
     }
 
@@ -109,7 +197,7 @@ int main(int argc, char* argv[])
     // validate the prefixSum
     if (validate)
     {
-        bool verify = psum::validatePrefixSum(in, out, N);
+        bool verify = psum::validatePrefixSum(in, out+1, N);
 
         if (verify)
             std::cout << "SUCCESS..";
@@ -118,10 +206,6 @@ int main(int argc, char* argv[])
 
         std::cout << std::endl;
     }
-
-    // delete in and out
-    delete[] in;
-    delete[] out;
 
     // return status
     return 0;

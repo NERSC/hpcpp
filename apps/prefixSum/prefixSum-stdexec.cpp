@@ -36,34 +36,48 @@
 // stdexec prefixSum function
 //
 template <typename T>
-[[nodiscard]] data_t* prefixSum(scheduler auto &&sch, const T *in, const int N)
+[[nodiscard]] T* prefixSum(scheduler auto &&sch, const T* in, const int N)
 {
-    data_t *y = new data_t[N+1];
+    // allocate a N+1 size array as there will be a trailing zero
+    T *y = new T[N+1];
 
-    // memcpy to output vector
-    ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k){ y[k] = in[k]; }));
-
+    // number of iterations
     int niters = ilog2(N);
+
+    // need to be dynamic memory to be able to use it in gpu ctx.
     int *d_ptr = new int(0);
 
-    // GE Blelloch (1990) algorithm
-    // upsweep algorithm
+    // memcpy to output vector to start computation.
+    ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k){ y[k] = in[k]; }));
+
+    // GE Blelloch (1990) algorithm from pseudocode at:
+    // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
+
+    // upsweep
     ex::sender auto uSweep = ex::just()
     | exec::on(sch,
        repeat_n(niters, ex::bulk(N/2, [=](int k){
+            // d = iteration number
             int d = *d_ptr;
-            int s1 = 1 << d+1;
-            int s2 = 1 << d;
-            int my = (k+1) * s1 - 1;
-            bool isActive = (k < N/s1);
+            // stride1 = 2^(d+1)
+            int st1 = 1 << d+1;
+            // stride2 = 2^d
+            int st2 = 1 << d;
+            // only the threads at indices (k+1) * 2^(d+1) -1 will compute
+            int myIdx = (k+1) * st1 - 1;
 
-            // only update the participating indices
+            // check if a thread should be active within bounds.
+            // note: don't check for (myIdx < N) instead to avoid possible overflows.
+            bool isActive = (k < N/st1);
+
+            // active threads update y
             if (isActive)
-                y[my] += y[my-s2];
+                y[myIdx] += y[myIdx-st2];
         })
         | ex::then([=](){ *d_ptr += 1; })
     ));
 
+    // wait for upsweep
     ex::sync_wait(uSweep);
 
     // write sum to y[N] and reset vars
@@ -73,30 +87,46 @@ template <typename T>
         *d_ptr = niters-1;
     }));
 
-    // downsweep algorithm
+    // downsweep
     ex::sender auto dSweep = ex::just()
     | exec::on(sch,
        repeat_n(niters, ex::bulk(N/2, [=](int k){
+            // d = iteration number
             int d = *d_ptr;
-            int s1 = 1 << d+1;
-            int s2 = 1 << d;
-            int my = (k+1) * s1 - 1;
-            bool isActive = (k < N/s1);
+            // stride1 = 2^(d+1)
+            int stride1 = 1 << d+1;
+            // stride2 = 2^d
+            int stride2 = 1 << d;
+            // only the threads at indices (k+1) * 2^(d+1) -1 will compute
+            int myIdx = (k+1) * stride1 - 1;
 
-            // only update the participating indices
+            // check if a thread should be active within bounds.
+            // note: don't check for (myIdx < N) instead to avoid possible overflows.
+            bool isActive = (k < N/stride1);
+
+            // active threads update y[myIdx] and y[myIdx-stride2]
+            // in downsweep
             if (isActive)
             {
-                auto tmp = y[my];
-                y[my] += y[my-s2];
-                y[my-s2] = tmp;
+                auto tmp = y[myIdx];
+                y[myIdx] += y[myIdx-stride2];
+                y[myIdx-stride2] = tmp;
             }
 
         })
         | ex::then([=](){ *d_ptr -= 1; })
     ));
 
+    // wait for downsweep
     ex::sync_wait(dSweep);
 
+    // FIXME: Investigate why joining the senders: uSweep | reset | dSweep = segfaults.
+    // even joining any sender such as consumer `then([](auto&&...{}) to uSweep or dSweep segfaults.
+
+    // delete d_ptr
+    delete d_ptr;
+
+    // return the computed results.
     return y;
 }
 
@@ -121,7 +151,7 @@ int main(int argc, char* argv[])
     bool print_time = args.print_time;
     bool validate = args.validate;
     std::string sched = args.sch;
-    int max_threads = args.max_threads;
+    int nthreads = args.nthreads;
 
     if (!isPowOf2(N))
     {
@@ -132,22 +162,18 @@ int main(int argc, char* argv[])
     // input data
     data_t *in = new data_t[N];
 
-    // random number generator
-    std::random_device rd;
-    std::mt19937 gen(rd());
-    std::uniform_int_distribution<data_t> dist(1, 10);
-
     std::cout << "Progress:0%" << std::flush;
 
-    // fill random between 1 to 10
-    std::generate(in, in+N, [&]() { return dist(gen); });
+    // random number generator
+    psum::genRandomVector(in, N, (data_t)0, (data_t)10);
 
     std::cout << "..50%" << std::flush;
 
+    // output pointer
+    data_t *out = nullptr;
+
     // start the timer
     Timer timer;
-
-    data_t *out = nullptr;
 
     // initialize stdexec scheduler
     sch_t scheduler = get_sch_enum(sched);
@@ -155,7 +181,7 @@ int main(int argc, char* argv[])
     // launch with appropriate stdexec scheduler
     switch (scheduler) {
         case sch_t::CPU:
-            out = prefixSum(exec::static_thread_pool(max_threads).get_scheduler(), in, N);
+            out = prefixSum(exec::static_thread_pool(nthreads).get_scheduler(), in, N);
             break;
 #if defined(USE_GPU)
         case sch_t::GPU:
@@ -202,8 +228,6 @@ int main(int argc, char* argv[])
         std::cout << std::endl;
     }
 
-    delete[] in;
-    delete[] out;
-
+    // return status
     return 0;
 }
