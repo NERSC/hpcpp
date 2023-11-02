@@ -39,6 +39,7 @@
 #include <execution>
 #include <functional>
 #include <iostream>
+#include <random>
 #include <iterator>
 #include <map>
 #include <memory>
@@ -79,7 +80,7 @@ class Timer {
             std::chrono::time_point_cast<std::chrono::microseconds>(start_time_point).time_since_epoch().count();
         auto end = std::chrono::time_point_cast<std::chrono::microseconds>(end_time_point).time_since_epoch().count();
         auto duration = end - start;
-        double ms = duration * 0.001;
+        double ms = duration * 1e-6;
         return ms;
     }
 
@@ -110,6 +111,45 @@ enum class sch_t { CPU, GPU, MULTIGPU };
 #endif
                                 "\n"
                                 "Exiting...\n");
+}
+
+inline bool isPowOf2(long long int x) {
+  return !(x == 0) && !(x & (x - 1));
+}
+
+template <typename T>
+void printVec(T &vec, int len)
+{
+    std::cout << "[ ";
+    for (int i = 0; i < len; i++)
+      std::cout << vec[i] << " ";
+
+    std::cout << "]" << std::endl;
+}
+
+inline int ceilPowOf2(unsigned int v)
+{
+  return static_cast<int>(std::bit_ceil(v));
+}
+
+inline int ilog2(uint32_t x)
+{
+    return static_cast<int>(log2(x));
+}
+template <typename T>
+bool complex_compare(T a, T b, double error = 0.0101)
+{
+  auto r = (fabs(a.real() - b.real()) < error)? true: false;
+  return r && (fabs(a.imag() - b.imag()) < error)? true: false;
+}
+
+uint32_t reverse_bits32(uint32_t x)
+{
+    x = ((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1);
+    x = ((x & 0xcccccccc) >> 2) | ((x & 0x33333333) << 2);
+    x = ((x & 0xf0f0f0f0) >> 4) | ((x & 0x0f0f0f0f) << 4);
+    x = ((x & 0xff00ff00) >> 8) | ((x & 0x00ff00ff) << 8);
+    return (x >> 16) | (x << 16);
 }
 
 // alias for status variables
