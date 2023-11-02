@@ -4,7 +4,7 @@ Standard C++26 (single-source) HPC proxy apps that run on CPUs and GPUs (powered
 ## Build
 
 ```bash
-git clone --recursive https://github.com/mhaseeb123/nvstdpar.git
+git clone --recursive https://github.com/NERSC/hpcpp.git
 cd nvstdpar ; mkdir build ; cd build
 ml nvhpc/23.7 cmake 3.24
 
