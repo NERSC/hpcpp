@@ -13,9 +13,10 @@ target_include_directories(
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-add_executable(choleskey_stdpar_snd choleskey_stdpar_snd.cpp)
-target_link_libraries(choleskey_stdpar_snd stdexec)
-target_include_directories(
-  choleskey_stdpar_snd
-  PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
-          ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
+# TODO: remove this example
+# add_executable(choleskey_stdpar_snd choleskey_stdpar_snd.cpp)
+# target_link_libraries(choleskey_stdpar_snd stdexec)
+# target_include_directories(
+#   choleskey_stdpar_snd
+#   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
+#           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
