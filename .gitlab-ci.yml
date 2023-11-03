@@ -1,0 +1,28 @@
+variables:
+  BASE: ${CI_PROJECT_DIR}
+  threads: 32
+
+default:
+  tags:
+    - muller-login01
+  interruptible: true
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+      variables:
+        install_prefix: ${CI_PROJECT_DIR}/pe
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      variables:
+        install_prefix: /global/cfs/cdirs/nstaff/wwei/hpcpp
+
+build-hpcpp-gpu:
+  stage: build
+  script:
+    - echo "Build with gpu enabled"
+    - bash scripts/build-hpcpp-gpu.sh
+  rules:
+    - changes:
+      - cripts/build-hpcpp-gpu.sh
+      allow_failure: true
+
