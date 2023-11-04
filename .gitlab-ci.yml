@@ -6,23 +6,43 @@ default:
   tags:
     - muller-login01
   interruptible: true
+  before_script:
+    - ml use /global/cfs/cdirs/m1759/wwei/nvhpc_23_7/modulefiles
+    - ml unload cudatoolkit
+    - ml gcc/12.2 cmake/3.24 nvhpc/23.7
 
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
       variables:
-        install_prefix: ${CI_PROJECT_DIR}/pe
+        install_prefix: ${CI_PROJECT_DIR}/merge_request_install
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       variables:
-        install_prefix: /global/cfs/cdirs/nstaff/wwei/hpcpp
+        install_prefix: ${CI_PROJECT_DIR}/default_branch_install
 
-build-hpcpp-gpu:
+build:
   stage: build
   script:
-    - echo "Build with gpu enabled"
-    - bash scripts/build-hpcpp-gpu.sh
-  rules:
-    - changes:
-      - cripts/build-hpcpp-gpu.sh
-      allow_failure: true
+    - cd ${BASE}
+    - git clone --recursive https://github.com/NERSC/hpcpp.git hpcpp 
+    - cd hpcpp
+    - mkdir -p build && cd build
+    - cmake -DCMAKE_CXX_COMPILER=$(which nvc++) -DCMAKE_C_COMPILER=$(which nvc) -DCMAKE_BUILD_TYPE=Debug -DSTDPAR=gpu -DOMP=gpu ..
+    - make -j${threads}
+  artifacts:
+    paths:
+      - hpcpp/build/
+
+test:
+  stage: test
+  dependencies:
+    - build
+  script:
+    - cd ${BASE}/hpcpp/build/apps/1d-stencil
+    - ./1d-serial --size 10 --nt 10
+    - ./1d-stdpar --size 10 --nt 10
+    - ./1d-omp --size 10 --nt 10
+    - ./1d-stdexec --sch gpu --size 10 --nt 10
+    - ./1d-stdexec --sch multigpu --size 10 --nt 10
+    - ./1d-cuda --size 10 --nt 10
 
