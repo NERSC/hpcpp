@@ -50,6 +50,9 @@
 #include <typeinfo>
 #include <vector>
 
+#include <fmt/core.h>
+#include <fmt/ranges.h>
+
 #include "counting_iterator.hpp"
 
 // get mdpsan 2d indices from 1d index

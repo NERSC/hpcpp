@@ -22,6 +22,9 @@ foreach(source_file ${CPP_SOURCES})
   # add dependency on argparse
   add_dependencies(${exec_name} argparse)
 
+  # add dependency on fmt 
+  find_package(fmt REQUIRED)
+
   set_source_files_properties(${source_file} PROPERTIES LANGUAGE CXX
                                                         LINKER_LANGUAGE CXX)
   target_include_directories(
@@ -29,7 +32,7 @@ foreach(source_file ${CPP_SOURCES})
     PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
             ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec)
+  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec fmt)
 
   set_target_properties(
     ${exec_name}

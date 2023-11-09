@@ -111,8 +111,7 @@ int benchmark(args_params_t const& args) {
   }
 
   if (args.time) {
-    std::cout << "Duration: " << time << " ms."
-              << "\n";
+    fmt::print("Duration: {.} ms\n", time);
   }
 
   return 0;

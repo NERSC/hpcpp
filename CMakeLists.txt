@@ -140,6 +140,16 @@ cpmaddpackage(
   "STDEXEC_ENABLE_IO_URING_TESTS OFF"
   "BUILD_TESTING OFF")
 
+cpmaddpackage(
+  NAME
+  fmt 
+  GITHUB_REPOSITORY
+  fmtlib/fmt
+  GIT_TAG
+  master# This will always pull the latest code from the `main` branch. You may
+        # also use a specific release version or tag
+  ) 
+
 # stdpar and openmp
 set(STDPAR_TYPE "gpu")
 set(OMP_TYPE "multicore")
