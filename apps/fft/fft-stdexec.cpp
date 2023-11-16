@@ -64,10 +64,19 @@
     // pointer to local partition size (must be dynamic mem to be copied to GPU)
     int *lN_ptr = new int(1);
 
-    // iterate until niters - lN*=2 after each iteration
-    ex::sender auto merge = ex::just() | exec::on(sch,
+#if !defined(USE_GPU)
+    for (auto iter = 0; iter < niters; iter++)
+#endif
+        // evolve the system
+        stdexec::sync_wait(
+#if defined(USE_GPU)
+        // iterate until niters - lN*=2 after each iteration
+        ex::just() | exec::on(sch,
            repeat_n(
              niters,
+#else
+            stdexec::schedule(sch) |
+#endif // USE_GPU
              ex::then([=](){ *lN_ptr *= 2;})
              | ex::bulk(N/2, [=](int k) {
                 // extract lN from pointer
@@ -86,10 +95,11 @@
                 auto tmp = x_r[e] + x_r[o] * WNk(N, i * nparts);
                 x_r[o]     = x_r[e] - x_r[o] * WNk(N, i * nparts);
                 x_r[e]     = tmp;
-            })));
-
-    // wait for pipeline
-    ex::sync_wait(std::move(merge));
+            })
+#if defined (USE_GPU)
+        ))
+#endif // USE_GPU
+        );
 
     // print final progress mark
     fmt::print("100%\n");
