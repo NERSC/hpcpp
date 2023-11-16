@@ -106,17 +106,27 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
             };
 
   // evolve the system
-  ex::sender auto evolve = ex::just() | exec::on(sch,
+#if !defined(USE_GPU)
+  for (auto iter = 0; iter < nsteps; iter++)
+#endif
+  stdexec::sync_wait(
+#if defined(USE_GPU)
+    ex::just() | exec::on(sch,
            repeat_n(
              nsteps,
+#else
+  stdexec::schedule(sch) |
+#endif // USE_GPU
              ex::bulk(phi_old_extent - nghosts, [=](int k) { fillBoundary(k); })
             | ex::bulk(gsize, [=](int k) { jacobi(k); })
-            | ex::bulk(gsize, [=](int k) { parallelCopy(k); })));
+            | ex::bulk(gsize, [=](int k) { parallelCopy(k); })
+#if defined (USE_GPU)
+  ))
+#endif // USE_GPU
+  );
 
   // update the simulation time
   time += nsteps * dt;
-
-  ex::sync_wait(std::move(evolve));
 
   // print final progress mark
   std::cout << "100%" << std::endl;
