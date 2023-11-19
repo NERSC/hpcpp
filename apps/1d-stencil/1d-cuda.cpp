@@ -93,7 +93,6 @@ int benchmark(args_params_t const& args) {
       auto h_current_mds = space(h_current, size);
       fmt::println("{::f}", h_current_mds);
     }
-    std::cout << "\n";
     // Cleanup
     delete[] h_current;
     delete[] h_next;
