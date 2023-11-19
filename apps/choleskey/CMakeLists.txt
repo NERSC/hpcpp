@@ -5,9 +5,10 @@ target_include_directories(
   choleskey_serial
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
+target_link_libraries(choleskey_serial fmt mdspan)
 
 add_executable(choleskey_stdpar choleskey_stdpar.cpp)
-target_link_libraries(choleskey_stdpar stdexec)
+target_link_libraries(choleskey_stdpar stdexec fmt mdspan)
 target_include_directories(
   choleskey_stdpar
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include

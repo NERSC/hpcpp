@@ -53,6 +53,8 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
+#include <mdspan_formatter.hpp>
+
 #include "counting_iterator.hpp"
 
 // get mdpsan 2d indices from 1d index

@@ -62,11 +62,6 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 # ##############################################################################
-# CMake settings
-# ##############################################################################
-option(USE_MDSPAN "Enable MDSPAN support" ON)
-
-# ##############################################################################
 # GCC version check
 # ##############################################################################
 set(GCC_EXPECTED_VERSION 11.2)
@@ -142,11 +137,35 @@ cpmaddpackage(
 
 cpmaddpackage(
   NAME
+  mdspan 
+  GITHUB_REPOSITORY
+  kokkos/mdspan
+  GIT_TAG
+  stable# This will always pull the latest code from the `main` branch. You may
+        # also use a specific release version or tag
+  ) 
+
+if(mdspan_ADDED)
+  message(STATUS "kokkos/mdspan was added successfully.")
+endif()
+
+cpmaddpackage(
+  NAME
   fmt 
   GITHUB_REPOSITORY
   fmtlib/fmt
   GIT_TAG
   master# This will always pull the latest code from the `main` branch. You may
+        # also use a specific release version or tag
+  ) 
+
+cpmaddpackage(
+  NAME
+  mdspan_formatter 
+  GITHUB_REPOSITORY
+  weilewei/mdspan_formatter
+  GIT_TAG
+  main# This will always pull the latest code from the `main` branch. You may
         # also use a specific release version or tag
   ) 
 
@@ -198,10 +217,8 @@ endif()
 # externals
 # ----------------------------------------------------------------------------------------#
 
-if(USE_MDSPAN)
-  message(STATUS "Adding externals...")
-  add_subdirectory(externals)
-endif()
+message(STATUS "Adding externals...")
+add_subdirectory(externals)
 
 # ----------------------------------------------------------------------------------------#
 # apps

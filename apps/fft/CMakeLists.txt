@@ -35,7 +35,7 @@ foreach(source_file ${CPP_SOURCES})
   # uncomment only if using nvc++/23.1 - no need if nvc++/23.7
   # target_link_directories(${exec_name} PRIVATE /opt/nvidia/hpc_sdk/Linux_x86_64/23.1/math_libs/lib64)
 
-  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec blas)
+  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec blas fmt mdspan)
 
   set_target_properties(
     ${exec_name}
