@@ -53,7 +53,7 @@
 #include <fmt/core.h>
 #include <fmt/ranges.h>
 
-#include <mdspan_formatter.hpp>
+#include <mdspan_fmt_formatter.hpp>
 
 #include "counting_iterator.hpp"
 

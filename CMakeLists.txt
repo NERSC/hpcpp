@@ -145,10 +145,6 @@ cpmaddpackage(
         # also use a specific release version or tag
   ) 
 
-if(mdspan_ADDED)
-  message(STATUS "kokkos/mdspan was added successfully.")
-endif()
-
 cpmaddpackage(
   NAME
   fmt 
@@ -168,6 +164,15 @@ cpmaddpackage(
   main# This will always pull the latest code from the `main` branch. You may
         # also use a specific release version or tag
   ) 
+
+add_library(hpcpp-core INTERFACE)
+
+# Link external libraries
+target_link_libraries(hpcpp-core INTERFACE
+  mdspan
+  fmt
+  mdspan_formatter
+)
 
 # stdpar and openmp
 set(STDPAR_TYPE "gpu")

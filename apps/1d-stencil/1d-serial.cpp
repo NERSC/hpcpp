@@ -104,12 +104,7 @@ int benchmark(args_params_t const& args) {
 
   // Print the final solution
   if (args.results) {
-    fmt::println("{:: >4.1f}", std::mdspan<Real_t, std::extents<int, std::dynamic_extent>, std::layout_right> { solution.data() });
-    fmt::println("{}", solution);
-    // for (std::size_t i = 0; i != size; ++i) {
-    //   std::cout << solution[i] << " ";
-    // }
-    // std::cout << "\n";
+    fmt::println("{::f}", solution);
   }
 
   if (args.time) {

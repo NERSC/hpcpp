@@ -5,6 +5,8 @@
 #include <thrust/execution_policy.h>
 #include <thrust/sequence.h>
 
+#include <experimental/mdspan>
+
 // parameters
 struct args_params_t : public argparse::Args {
   bool& results = kwarg("results", "print generated results (default: false)")
@@ -14,17 +16,17 @@ struct args_params_t : public argparse::Args {
   bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
   double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
   double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
-  bool& no_header =
-      kwarg("no-header", "Do not print csv header row (default: false)")
-          .set_default(false);
   bool& help = flag("h, help", "print help");
   bool& time = kwarg("t, time", "print time").set_default(true);
 };
 
 using Real_t = double;
+
+using view_1d = std::extents<int, std::dynamic_extent>;
+typedef std::mdspan<Real_t, view_1d, std::layout_right> space;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
-constexpr bool header = true;        // print csv heading
 constexpr Real_t k = 0.5;  // heat transfer coefficient
 constexpr Real_t dt = 1.;  // time step
 constexpr Real_t dx = 1.;  // grid spacing
@@ -87,8 +89,9 @@ int benchmark(args_params_t const& args) {
                cudaMemcpyDeviceToHost);
 
     // Print results
-    for (std::size_t i = 0; i != size; ++i) {
-      std::cout << h_current[i] << " ";
+    if (args.results) {
+      auto h_current_mds = space(h_current, size);
+      fmt::println("{::f}", h_current_mds);
     }
     std::cout << "\n";
     // Cleanup
@@ -100,8 +103,7 @@ int benchmark(args_params_t const& args) {
   cudaFree(d_next);
 
   if (args.time) {
-    std::cout << "Duration: " << time << " ms."
-              << "\n";
+    fmt::print("Duration: {:f} ms\n", time);
   }
 
   return 0;

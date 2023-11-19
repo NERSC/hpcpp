@@ -29,7 +29,7 @@ foreach(source_file ${CPP_SOURCES})
     PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
             ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec fmt mdspan)
+  target_link_libraries(${exec_name} PUBLIC ${MPI_LIBS} stdexec hpcpp-core)
 
   set_target_properties(
     ${exec_name}

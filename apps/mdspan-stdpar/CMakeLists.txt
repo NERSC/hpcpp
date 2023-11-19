@@ -17,7 +17,7 @@ target_include_directories(
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${MDSPAN_INCLUDE_DIR})
 
-target_link_libraries(mdspan-stdpar PUBLIC ${MPI_LIBS} stdexec fmt mdspan)
+target_link_libraries(mdspan-stdpar PUBLIC ${MPI_LIBS} stdexec hpcpp-core)
 
 set_target_properties(
   mdspan-stdpar
