@@ -244,7 +244,7 @@ int main(int argc, char* argv[]) {
 
   // print timing
   if (args.print_time) {
-    std::cout << "Time: " << elapsed << " ms" << std::endl;
+    fmt::print("Duration: {:f} ms\n", elapsed);
   }
 
   // print final grid if needed

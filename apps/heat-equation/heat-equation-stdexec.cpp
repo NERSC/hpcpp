@@ -119,7 +119,7 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
   ex::sync_wait(std::move(evolve));
 
   // print final progress mark
-  std::cout << "100%" << std::endl;
+  fmt::print("100% \n");
 
   return;
 }
@@ -184,7 +184,7 @@ int main(int argc, char* argv[]) {
 
   // print timing
   if (args.print_time) {
-    std::cout << "Time: " << elapsed << " ms" << std::endl;
+    fmt::print("Duration: {:f} ms\n", elapsed);
   }
 
   if (args.print_grid)
