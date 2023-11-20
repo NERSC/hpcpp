@@ -54,11 +54,40 @@ template <typename T>
     // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
 
     // upsweep
-    ex::sender auto uSweep = ex::just()
-    | exec::on(sch,
-       repeat_n(niters, ex::bulk(N/2, [=](int k){
-            // d = iteration number
-            int d = *d_ptr;
+    for (int d = 0; d < niters; d++)
+    {
+        int bsize = N/(1 << d+1);
+
+        ex::sender auto uSweep = schedule(sch)
+            | ex::bulk(bsize, [=](int k) {
+                // stride1 = 2^(d+1)
+                int st1 = 1 << d+1;
+                // stride2 = 2^d
+                int st2 = 1 << d;
+                // only the threads at indices (k+1) * 2^(d+1) -1 will compute
+                int myIdx = (k+1) * st1 - 1;
+
+                // update y[myIdx]
+                y[myIdx] += y[myIdx-st2];
+            }
+        );
+        // wait for upsweep
+        ex::sync_wait(uSweep);
+    }
+
+    // write sum to y[N] and reset vars
+    ex::sync_wait(schedule(sch) | ex::then([=](){
+        y[N] = y[N-1];
+        y[N-1] = 0;
+    }));
+
+    // downsweep
+    for (int d = niters-1; d >= 0; d--)
+    {
+        int bsize = N/(1 << d+1);
+
+        ex::sender auto dSweep = schedule(sch)
+            | ex::bulk(bsize, [=](int k){
             // stride1 = 2^(d+1)
             int st1 = 1 << d+1;
             // stride2 = 2^d
@@ -66,65 +95,15 @@ template <typename T>
             // only the threads at indices (k+1) * 2^(d+1) -1 will compute
             int myIdx = (k+1) * st1 - 1;
 
-            // check if a thread should be active within bounds.
-            // note: don't check for (myIdx < N) instead to avoid possible overflows.
-            bool isActive = (k < N/st1);
+            // update y[myIdx] and y[myIdx-stride2]
+            auto tmp = y[myIdx];
+            y[myIdx] += y[myIdx-st2];
+            y[myIdx-st2] = tmp;
+        });
 
-            // active threads update y
-            if (isActive)
-                y[myIdx] += y[myIdx-st2];
-        })
-        | ex::then([=](){ *d_ptr += 1; })
-    ));
-
-    // wait for upsweep
-    ex::sync_wait(uSweep);
-
-    // write sum to y[N] and reset vars
-    ex::sync_wait(schedule(sch) | ex::then([=](){
-        y[N] = y[N-1];
-        y[N-1] = 0;
-        *d_ptr = niters-1;
-    }));
-
-    // downsweep
-    ex::sender auto dSweep = ex::just()
-    | exec::on(sch,
-       repeat_n(niters, ex::bulk(N/2, [=](int k){
-            // d = iteration number
-            int d = *d_ptr;
-            // stride1 = 2^(d+1)
-            int stride1 = 1 << d+1;
-            // stride2 = 2^d
-            int stride2 = 1 << d;
-            // only the threads at indices (k+1) * 2^(d+1) -1 will compute
-            int myIdx = (k+1) * stride1 - 1;
-
-            // check if a thread should be active within bounds.
-            // note: don't check for (myIdx < N) instead to avoid possible overflows.
-            bool isActive = (k < N/stride1);
-
-            // active threads update y[myIdx] and y[myIdx-stride2]
-            // in downsweep
-            if (isActive)
-            {
-                auto tmp = y[myIdx];
-                y[myIdx] += y[myIdx-stride2];
-                y[myIdx-stride2] = tmp;
-            }
-
-        })
-        | ex::then([=](){ *d_ptr -= 1; })
-    ));
-
-    // wait for downsweep
-    ex::sync_wait(dSweep);
-
-    // FIXME: Investigate why joining the senders: uSweep | reset | dSweep = segfaults.
-    // even joining any sender such as consumer `then([](auto&&...{}) to uSweep or dSweep segfaults.
-
-    // delete d_ptr
-    delete d_ptr;
+        // wait for downsweep
+        ex::sync_wait(dSweep);
+    }
 
     // return the computed results.
     return y;
