@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #pragma once
+
+#if defined(USE_GPU)
+
 #include <stdexec/__detail/__config.hpp>
 #include <map>
 #include <chrono>
@@ -350,3 +353,5 @@ template <class SchedulerT>
   auto [on_gpu] = stdexec::sync_wait(std::move(snd)).value();
   return on_gpu;
 }
+
+#endif // USE_GPU

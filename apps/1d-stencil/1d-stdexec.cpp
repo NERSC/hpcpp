@@ -80,10 +80,18 @@ struct stepper {
         stdexec::sender auto init = stdexec::bulk(stdexec::schedule(sch), size, [=](int i) { auto current_ptr = *current_ptr_ptr; ; current_ptr[i] = (Real_t)i; });
         stdexec::sync_wait(std::move(init));
 
+#if !defined(USE_GPU)
+        for (auto iter = 0; iter < nt; iter++)
+#endif
         // evolve the system
-        ex::sender auto evolve = ex::just() | exec::on(sch,
+        stdexec::sync_wait(
+#if defined(USE_GPU)
+            ex::just() | exec::on(sch,
            repeat_n(
              nt,
+#else
+            stdexec::schedule(sch) |
+#endif
              stdexec::bulk(size, [=](int i) {
                     auto current_ptr = *current_ptr_ptr;
                     auto next_ptr = *next_ptr_ptr;
@@ -93,10 +101,10 @@ struct stepper {
                     next_ptr[i] = current_ptr[i] + (k * dt / (dx * dx)) * (current_ptr[left] - 2 * current_ptr[i] + current_ptr[right]);
                 })
             | stdexec::then([=]() { std::swap(*next_ptr_ptr, *current_ptr_ptr); })
-            ));
-
-        // wait for evolve
-        stdexec::sync_wait(std::move(evolve));
+#if defined(USE_GPU)
+            ))
+#endif // USE_GPU
+        );
 
         if (nt % 2 == 0) {
             return current;
