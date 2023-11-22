@@ -65,18 +65,18 @@ int main(int argc, char* argv[])
     if (!isPowOf2(N))
     {
         N = ceilPowOf2(N);
-        std::cout << "INFO: N != pow(2). Setting => N = " << N << std::endl;
+        fmt::print("INFO: N != pow(2). Setting => N = {}\n", N);
     }
 
     // input data
     data_t *in = new data_t[N];
 
-    std::cout << "Progress:0%" << std::flush;
+    fmt::print("Progress:0%");
 
     // random number generator
     psum::genRandomVector(in, N, (data_t)0, (data_t)10);
 
-    std::cout << "..50%" << std::flush;
+    fmt::print("..50%");
 
     // output pointer
     data_t *out = nullptr;
@@ -90,33 +90,32 @@ int main(int argc, char* argv[])
     // stop timer
     auto elapsed = timer.stop();
 
-    std::cout << "..100%" << std::endl << std::flush;
+    fmt::print("..100%\n");
 
     // print the input and its prefix sum (don't if N > 100)
     if (print_arr && N < 100)
     {
-        std::cout << std::endl << "in  = " << std::flush;
-        printVec(in, N);
-        std::cout << std::endl << "out = " << std::flush;
-        printVec(out, N);
-        std::cout << std::endl;
+        fmt::print("int = {}\n", fmt::join(in, in + N, " "));
+        fmt::print("out = {}\n", fmt::join(out, out + N, " "));
     }
 
     // print the elapsed time
     if (print_time)
-        std::cout << "Elapsed Time: " << elapsed << " s" << std::endl;
+        fmt::print("Elapsed Time: {:f} s\n", elapsed);
 
     // validate the prefixSum
     if (validate)
     {
         bool verify = psum::validatePrefixSum(in, out, N);
 
-        if (verify)
-            std::cout << "SUCCESS..";
-        else
-            std::cout << "FAILED..";
+        if (verify){
+            fmt::print("SUCCESS..");
+        }
+        else{
+            fmt::print("FAILED..");
+        }
 
-        std::cout << std::endl;
+        fmt::print("\n");
     }
 
     // delete in and out

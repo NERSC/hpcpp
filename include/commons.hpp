@@ -49,6 +49,7 @@
 #include <type_traits>
 #include <typeinfo>
 #include <vector>
+#include <complex>
 
 #include <fmt/core.h>
 #include <fmt/ranges.h>
@@ -132,16 +133,6 @@ enum class sch_t { CPU, GPU, MULTIGPU };
 
 inline bool isPowOf2(long long int x) {
   return !(x == 0) && !(x & (x - 1));
-}
-
-template <typename T>
-void printVec(T &vec, int len)
-{
-    std::cout << "[ ";
-    for (int i = 0; i < len; i++)
-      std::cout << vec[i] << " ";
-
-    std::cout << "]" << std::endl;
 }
 
 inline int ceilPowOf2(unsigned int v)

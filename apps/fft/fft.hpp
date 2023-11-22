@@ -30,8 +30,6 @@
 
 #pragma once
 
-#include <complex>
-
 #include <experimental/mdspan>
 #include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>

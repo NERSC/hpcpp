@@ -45,8 +45,7 @@ void heat_equation(scheduler auto sch, Real_t *phi_old, Real_t *phi_new, Real_t 
     dx[i] = 1.0 / (ncells - 1);
 
   // set cout precision
-  std::cout << std::fixed << std::setprecision(1);
-  std::cout << "HEQ progress: ";
+  fmt::print("HEQ progress: ");
 
   ex::sender auto begin = schedule(sch);
 

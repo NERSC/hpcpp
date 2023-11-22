@@ -52,7 +52,7 @@ auto work(P& A, P& B, P& Y, int N) {
     // A[i] = sin(M_PI/4);
   }
 
-  std::cout << std::endl;
+  fmt::print("\n");
 
   // will it cause an H2D here?
   std::for_each(std::execution::par_unseq, &B[0], &B[N],
@@ -70,7 +70,7 @@ auto work(P& A, P& B, P& Y, int N) {
   for (int i = 0; i < N / 3; i++)
     sum += Y[i] / N;
 
-  std::cout << std::endl;
+  fmt::print("\n");
 
   // get sum(Y) - one last memcpy (not USM) D2H
   sum +=
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
   sum = work(A, B, Y, N);
   es = std::chrono::duration<double>(std::chrono::system_clock::now() - mark)
            .count();
-  std::cout << "Vectors: Elapsed Time: " << es << "s" << std::endl << std::endl;
+  fmt::print("Vectors: Elapsed Time: {:f}s\n", es);
 
 #endif
 
@@ -112,12 +112,11 @@ int main(int argc, char* argv[]) {
   sum = work(a, b, y, N);
   es = std::chrono::duration<double>(std::chrono::system_clock::now() - mark)
            .count();
-  std::cout << "Pointers: Elapsed Time: " << es << "s" << std::endl
-            << std::endl;
+  fmt::print("Pointers: Elapsed Time: {:f}s\n\n", es);
 #endif
 
   // do not use scientific notation
-  std::cout << std::fixed << "sum: " << sum << "\n";
+  fmt::print("sum: {}\n", sum);
 
   return 0;
 }

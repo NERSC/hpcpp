@@ -75,7 +75,7 @@ namespace psum
 template <typename T>
 [[nodiscard]] bool validatePrefixSum(T *in, data_t *out, size_t N)
 {
-    std::cout << std:: endl << "Validating: ";
+    fmt::print("Validating: \n");
 
     // compute inclusive_scan via parSTL
     std::vector<data_t> test(N);
