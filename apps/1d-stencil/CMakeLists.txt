@@ -22,9 +22,6 @@ foreach(source_file ${CPP_SOURCES})
   # add dependency on argparse
   add_dependencies(${exec_name} argparse)
 
-  # add dependency on fmt 
-  find_package(fmt REQUIRED)
-
   set_source_files_properties(${source_file} PROPERTIES LANGUAGE CXX
                                                         LINKER_LANGUAGE CXX)
   target_include_directories(
