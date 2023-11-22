@@ -231,13 +231,7 @@ public:
   }
 
   void printSignal() {
-    std::cout << std::fixed << std::setprecision(2);
-
-    std::cout << "[ ";
-    for (auto &el : y)
-      std::cout << el << " ";
-
-    std::cout << "]" << std::endl;
+      fmt::print("{} \n", y);
   }
 
   [[nodiscard]] bool isFFT(signal &X, scheduler auto sch, int maxN = 20000)
@@ -247,7 +241,7 @@ public:
 
     if (X.len() > maxN)
     {
-      std::cout << "Input signal may be too large to compute DFT via y[n] = WNk * x[n]. Segfaults expected.." << std::endl;
+      fmt::print("Input signal may be too large to compute DFT via y[n] = WNk * x[n]. Segfaults expected..\n");
     }
 
     std::vector<data_t> Y(N);

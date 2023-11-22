@@ -57,6 +57,18 @@
 
 #include "counting_iterator.hpp"
 
+template <typename T>
+requires std::floating_point<T>
+struct fmt::formatter<std::complex<T>> {
+    template <typename ParseContext>
+    constexpr auto parse(ParseContext& ctx) { return ctx.begin(); }
+
+    template <typename FormatContext>
+    auto format(const std::complex<T>& c, FormatContext& ctx) const {
+        return format_to(ctx.out(), "({:.2f} + {:.2f}i)", c.real(), c.imag());
+    }
+};
+
 // get mdpsan 2d indices from 1d index
 #define dim2(x, ms)            \
     int ii = x / ms.extent(1); \
