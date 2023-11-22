@@ -56,14 +56,13 @@
     int lN = 2;
 
     // set cout precision
-    std::cout << std::fixed << std::setprecision(1);
-    std::cout << "FFT progress: ";
+    fmt::print("FFT progress: ");
 
     // iterate until niters - lN*=2 after each iteration
     for (int it = 0; it < niters; it++, lN*=2)
     {
         // print progress
-        std::cout << (100.0 * it)/niters << "%.." << std::flush;
+        fmt::print("{:.1f}%..", (100.0 * it)/niters);
 
         // debugging timer
         static Timer dtimer;
@@ -76,7 +75,7 @@
         if (debug)
         {
             dtimer.start();
-            std::cout << "lN = " << lN << ", npartitions = " << nparts << ", partition size = " << tpp << std::endl;
+            fmt::print("lN = {}, npartitions = {}, partition size = {}\n", lN, nparts, tpp);
         }
 
         // parallel compute lN-pt FFT
@@ -94,11 +93,11 @@
 
         // print only if debugging
         if (debug)
-            std::cout << "This iter time: " << dtimer.stop() << " ms" << std::endl;
+            fmt::print("This iter time: {} ms\n", dtimer.stop());
     }
 
     // print final progress mark
-    std::cout << "100%" << std::endl;
+    fmt::print("100%\n");
 
     // return x_rev = fft(x_r)
     return x_rev;
@@ -133,16 +132,15 @@ int main(int argc, char* argv[])
     if (!isPowOf2(N))
     {
         N = ceilPowOf2(N);
-        std::cout << "INFO: N is not a power of 2. Padding zeros => N = " << N << std::endl;
+        fmt::print("INFO: N is not a power of 2. Padding zeros => N = {}\n", N);
 
         x_n.resize(N);
     }
 
     if (print_sig)
     {
-        std::cout << std::endl << "x[n] = ";
+        fmt::print("\nx[n] = ");
         x_n.printSignal();
-        std::cout << std::endl;
     }
 
     // start the timer here
@@ -157,22 +155,24 @@ int main(int argc, char* argv[])
     // print the fft(x)
     if (print_sig)
     {
-        std::cout << "X(k) = ";
+        fmt::print("X(k) = ");
         y_n.printSignal();
-        std::cout << std::endl;
     }
 
     // print the computation time
-    if (print_time)
-        std::cout << "Elapsed Time: " << elapsed << " ms" << std::endl;
+    if (print_time) {
+        fmt::print("Elapsed Time: {} ms\n", elapsed);
+    }
 
     // validate the recursively computed fft
     if (validate)
     {
-        if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler()))
-            std::cout << "SUCCESS: y[n] == fft(x[n])" << std::endl;
-        else
-            std::cout << "FAILED: y[n] != fft(x[n])" << std::endl;
+        if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler())){
+            fmt::print("SUCCESS: y[n] == fft(x[n])\n");
+        }
+        else {
+            fmt::print("FAILED: y[n] != fft(x[n])\n");
+        }
     }
 
     return 0;
