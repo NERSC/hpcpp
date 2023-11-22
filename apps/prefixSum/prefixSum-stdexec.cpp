@@ -209,7 +209,7 @@ int main(int argc, char* argv[])
 
     // print the elapsed time
     if (print_time)
-        fmt::print("Elapsed Time: {} s\n", elapsed);
+        fmt::print("Elapsed Time: {:f} s\n", elapsed);
 
     // validate the prefixSum
     if (validate)
