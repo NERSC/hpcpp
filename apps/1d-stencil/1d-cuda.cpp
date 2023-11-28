@@ -5,8 +5,6 @@
 #include <thrust/execution_policy.h>
 #include <thrust/sequence.h>
 
-#include <experimental/mdspan>
-
 // parameters
 struct args_params_t : public argparse::Args {
   bool& results = kwarg("results", "print generated results (default: false)")

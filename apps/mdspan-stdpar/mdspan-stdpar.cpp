@@ -24,8 +24,6 @@
  * SOFTWARE.
  */
 
-#include <experimental/mdspan>
-
 #include "commons.hpp"
 
 using data_type = int;

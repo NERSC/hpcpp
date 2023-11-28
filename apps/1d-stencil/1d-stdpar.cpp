@@ -28,7 +28,6 @@
 // This example provides a stdpar implementation for the 1D stencil code.
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
-#include <experimental/mdspan>
 
 // parameters
 struct args_params_t : public argparse::Args {
