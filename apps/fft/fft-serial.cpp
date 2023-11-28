@@ -52,14 +52,11 @@
     // local merge partition size
     int lN = 2;
 
-    // set cout precision
-    std::cout << std::fixed << std::setprecision(1);
-
-    std::cout << "FFT progress: ";
+    fmt::print("FFT progress: ");
 
     for (int k = 0; k < niters; k++, lN*=2)
     {
-        std::cout << (100.0 * k)/niters << "%.." << std::flush;
+        fmt::print("{:f}%..", (100.0 * k)/niters); 
 
         static Timer dtimer;
 
@@ -82,11 +79,12 @@
             x_r[e]     = tmp;
         }
 
-        if (debug)
-        std::cout << "This iter time: " << dtimer.stop() << " ms" << std::endl;
+        if (debug) {
+            fmt::print("This iter time: {:f} ms\n", dtimer.stop());
+        }
     }
 
-    std::cout << "100%" << std::endl;
+    fmt::print("100%\n");
     return x_r;
 }
 
@@ -119,16 +117,15 @@ int main(int argc, char* argv[])
     if (!isPowOf2(N))
     {
         N = ceilPowOf2(N);
-        std::cout << "INFO: N is not a power of 2. Padding zeros => N = " << N << std::endl;
+        fmt::print("INFO: N is not a power of 2. Padding zeros => N = {}\n", N);
 
         x_n.resize(N);
     }
 
     if (print_sig)
     {
-        std::cout << std::endl << "x[n] = ";
+        fmt::print("x[n] = ");
         x_n.printSignal();
-        std::cout << std::endl;
     }
 
     // niterations
@@ -147,22 +144,24 @@ int main(int argc, char* argv[])
     // print the fft(x)
     if (print_sig)
     {
-        std::cout << "X(k) = ";
+        fmt::print("X(k) = ");
         y_n.printSignal();
-        std::cout << std::endl;
     }
 
     // print the computation time
-    if (print_time)
-        std::cout << "Elapsed Time: " << elapsed << " ms" << std::endl;
+    if (print_time) {
+        fmt::print("Duration: {:f} ms\n", elapsed);
+    }
 
     // validate the recursively computed fft
     if (validate)
     {
-        if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler()))
-            std::cout << "SUCCESS: y[n] == fft(x[n])" << std::endl;
-        else
-            std::cout << "FAILED: y[n] != fft(x[n])" << std::endl;
+        if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler())) {
+            fmt::print("SUCCESS: y[n] == fft(x[n])\n");
+        }
+        else {
+            fmt::print("FAILED: y[n] != fft(x[n])\n");
+        }
     }
 
     return 0;

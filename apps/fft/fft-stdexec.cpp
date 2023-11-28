@@ -45,8 +45,7 @@
     int shift = 32 - ilog2(N);
 
     // set cout precision
-    std::cout << std::fixed << std::setprecision(1);
-    std::cout << "FFT progress: " << std::flush;
+    fmt::print("FFT progress: ");
 
     // twiddle bits for fft
     ex::sender auto twiddle =
@@ -57,7 +56,7 @@
     ex::sync_wait(std::move(twiddle));
 
     // mark progress of the twiddle stage
-    std::cout << "50%.." << std::flush;
+    fmt::print("50%..");
 
     // niterations
     int niters = ilog2(N);
@@ -103,7 +102,7 @@
         );
 
     // print final progress mark
-    std::cout << "100%" << std::flush << std::endl;
+    fmt::print("100%\n");
 
     // return x_rev = fft(x_r)
     return x_rev;
@@ -140,16 +139,15 @@ int main(int argc, char* argv[])
     if (!isPowOf2(N))
     {
         N = ceilPowOf2(N);
-        std::cout << "INFO: N is not a power of 2. Padding zeros => N = " << N << std::endl;
+        fmt::print("INFO: N is not a power of 2. Padding zeros => N = {}\n", N);
 
         x_n.resize(N);
     }
 
     if (print_sig)
     {
-        std::cout << std::endl << "x[n] = ";
+        fmt::print("\nx[n] = ");
         x_n.printSignal();
-        std::cout << std::endl;
     }
 
     // y[n] = fft(x[n]);
@@ -187,14 +185,13 @@ int main(int argc, char* argv[])
     // print the fft(x)
     if (print_sig)
     {
-        std::cout << "X(k) = ";
+        fmt::print("X(k) = ");
         y_n.printSignal();
-        std::cout << std::endl;
     }
 
     // print the computation time
     if (print_time)
-        std::cout << "Elapsed Time: " << elapsed << " ms" << std::endl;
+        fmt::print("Elapsed Time: {:f} ms\n", elapsed);
 
     // validate the recursively computed fft
     if (validate)
@@ -217,10 +214,12 @@ int main(int argc, char* argv[])
                 throw std::runtime_error("Run: `fft-stdexec --help` to see the list of available schedulers");
         }
 
-        if (verify)
-            std::cout << "SUCCESS: y[n] == fft(x[n])" << std::endl;
-        else
-            std::cout << "FAILED: y[n] != fft(x[n])" << std::endl;
+        if (verify){
+            fmt::print("SUCCESS: y[n] == fft(x[n])\n");
+        }
+        else{
+            fmt::print("FAILED: y[n] != fft(x[n])\n");
+        }
     }
 
     return 0;

@@ -139,29 +139,11 @@ function(CHECKOUT_GIT_SUBMODULE)
 
 endfunction()
 
-checkout_git_submodule(
-  RECURSIVE
-  RELATIVE_PATH
-  externals/mdspan
-  WORKING_DIRECTORY
-  ${PROJECT_SOURCE_DIR}
-  REPO_URL
-  https://github.com/kokkos/mdspan.git
-  REPO_BRANCH
-  main)
-
-message(STATUS "Adding externals/mdspan...")
-add_subdirectory(mdspan)
-
 message(STATUS "Adding externals/argparse...")
 add_subdirectory(argparse)
 
 message(STATUS "Adding externals/magic_enum...")
 add_subdirectory(magic_enum)
-
-set(MDSPAN_INCLUDE_DIR
-    ${CMAKE_CURRENT_SOURCE_DIR}/mdspan/include
-    CACHE PATH "mdspan include directory")
 
 set(ARGPARSE_INCLUDE_DIR
     ${CMAKE_CURRENT_SOURCE_DIR}/argparse/include

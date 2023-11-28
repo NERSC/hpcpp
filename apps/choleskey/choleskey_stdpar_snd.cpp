@@ -28,7 +28,6 @@
 //
 // This example provides a stdexec(senders/receivers) implementation for choleskey decomposition code.
 #include <algorithm>
-#include <experimental/mdspan>
 #include <iostream>
 #include <numeric>
 #include <stdexec/execution.hpp>
@@ -165,27 +164,27 @@ int benchmark(args_params_t const& args) {
 
   // start decomposation
   auto res_matrix = solve.Cholesky_Decomposition(inputMatrix, nd, np);
+  auto time = timer.stop();
 
   // Print the final results
   if (args.results) {
     // Displaying Lower Triangular and its Transpose
-    cout << setw(6) << " Lower Triangular" << setw(30) << "Transpose" << endl;
+    fmt::print("{:>6} {:>30}\n", "Lower Triangular", "Transpose");
     for (int i = 0; i < nd; i++) {
       // Lower Triangular
       for (int j = 0; j < nd; j++)
-        cout << setw(6) << res_matrix[i][j] << "\t";
-      cout << "\t";
+        fmt::print("{:>6}\t", res_matrix[i][j]);
+      fmt::print("\t");
 
       // Transpose of Lower Triangular
       for (int j = 0; j < nd; j++)
-        cout << setw(6) << res_matrix[j][i] << "\t";
-      cout << endl;
+        fmt::print("{:>6}\t", res_matrix[j][i]);
+      fmt::print("\n");
     }
   }
 
   if (args.time) {
-    std::cout << "Duration: " << time << " ms."
-              << "\n";
+    fmt::print("Duration: {:f} ms\n", time);
   }
 
   return 0;

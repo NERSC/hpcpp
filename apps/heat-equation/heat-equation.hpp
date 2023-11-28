@@ -30,7 +30,6 @@
 
 #pragma once
 
-#include <experimental/mdspan>
 #include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>
 
@@ -98,17 +97,8 @@ struct heat_params_t : public argparse::Args {
 template <typename T>
 void printGrid(T* grid, int len) {
   auto view = std::mdspan<T, view_2d, std::layout_right>(grid, len, len);
-  std::cout << "Grid: " << std::endl;
-  std::cout << std::fixed << std::showpoint;
-  std::cout << std::setprecision(2);
-
-  for (auto j = 0; j < view.extent(1); ++j) {
-    for (auto i = 0; i < view.extent(0); ++i) {
-      std::cout << view(i, j) << ", ";
-    }
-    std::cout << std::endl;
-  }
-  std::cout << std::endl;
+  fmt::print("Grid: \n");
+  fmt::println("{::.2f}", view);
 }
 
 // fill boundary cells

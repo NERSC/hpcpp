@@ -24,8 +24,6 @@
  * SOFTWARE.
  */
 
-#include <experimental/mdspan>
-
 #include "commons.hpp"
 
 using data_type = int;
@@ -60,7 +58,7 @@ int main() {
                   ms2(ii, ij) = global_idx;
                 });
 
-  std::cout << std::endl << std::endl;
+  fmt::print("\n");
 
   std::for_each(std::execution::par_unseq, ms2.data_handle(),
                 ms2.data_handle() + ms2.size(), [=](int& i) {
@@ -76,12 +74,12 @@ int main() {
       for (size_t k = 0; k < ms3.extent(2); k++) {
         assert(ms3(i, j, k) == 1000 + i * ms3.extent(1) * ms3.extent(2) +
                                    j * ms3.extent(2) + k);
-        std::cout << ms3(i, j, k) << " ";
+        fmt::print("{} ", ms3(i, j, k));
       }
-      std::cout << std::endl;
+      fmt::print("\n");
     }
-    std::cout << std::endl;
+    fmt::print("\n");
   }
 
-  std::cout << ms3(0, 0, 1) << "\n";
+  fmt::print("{}\n", ms3(0, 0, 1));
 }

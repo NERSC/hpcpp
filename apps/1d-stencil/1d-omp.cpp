@@ -101,15 +101,11 @@ int benchmark(args_params_t const& args) {
 
   // Print the final solution
   if (args.results) {
-    for (const auto& ele: solution) {
-      std::cout << ele << " ";
-    }
-    std::cout << "\n";
+    fmt::println("{::f}", solution);
   }
 
   if (args.time) {
-    std::cout << "Duration: " << time << " ms."
-              << "\n";
+    fmt::print("Duration: {:f} ms\n", time);
   }
 
   return 0;

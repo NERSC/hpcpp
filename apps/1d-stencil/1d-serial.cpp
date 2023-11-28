@@ -24,7 +24,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-#include <experimental/mdspan>
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
 
@@ -104,15 +103,11 @@ int benchmark(args_params_t const& args) {
 
   // Print the final solution
   if (args.results) {
-    for (std::size_t i = 0; i != size; ++i) {
-      std::cout << solution[i] << " ";
-    }
-    std::cout << "\n";
+    fmt::println("{::f}", solution);
   }
 
   if (args.time) {
-    std::cout << "Duration: " << time << " ms."
-              << "\n";
+    fmt::print("Duration: {:f} ms\n", time);
   }
 
   return 0;
