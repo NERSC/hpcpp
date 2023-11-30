@@ -34,7 +34,7 @@ foreach(source_file ${CPP_SOURCES})
   set_target_properties(
     ${exec_name}
     PROPERTIES CXX_STANDARD ${CXX_STANDARD}
-               CXX_EXTENSIONS NO
+               CXX_EXTENSIONS ${CMAKE_GNU_EXTENSIONS}
                INSTALL_RPATH_USE_LINK_PATH ON)
 
   # installation

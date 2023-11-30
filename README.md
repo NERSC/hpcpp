@@ -1,4 +1,4 @@
-# hpcpp 
+# hpcpp
 
 Standard C++26 (single-source) HPC proxy apps that run on CPUs and GPUs (powered by `nv-std::execution`).
 

@@ -79,6 +79,7 @@ set(CXX_STANDARD_REQUIRED ON)
 
 # required minimum CXX standard
 set(CMAKE_CXX_STANDARD_REQUIRED 23)
+set(CMAKE_GNU_EXTENSIONS ON)
 
 if(NOT CXX_STANDARD OR (CXX_STANDARD LESS ${CMAKE_CXX_STANDARD_REQUIRED}))
   set(CXX_STANDARD ${CMAKE_CXX_STANDARD_REQUIRED})
@@ -135,30 +136,29 @@ cpmaddpackage(
 
 cpmaddpackage(
   NAME
-  mdspan 
+  mdspan
   GITHUB_REPOSITORY
   kokkos/mdspan
-  GIT_TAG
   stable
-  ) 
+  )
 
 cpmaddpackage(
   NAME
-  fmt 
+  fmt
   GITHUB_REPOSITORY
   fmtlib/fmt
   GIT_TAG
   master
-  ) 
+  )
 
 cpmaddpackage(
   NAME
-  mdspan_formatter 
+  mdspan_formatter
   GITHUB_REPOSITORY
   weilewei/mdspan_formatter
   GIT_TAG
   main
-  ) 
+  )
 
 cpmaddpackage(
   NAME
@@ -167,7 +167,7 @@ cpmaddpackage(
   mhaseeb123/argparse
   GIT_TAG
   master 
-  ) 
+  )
 
 add_library(hpcpp-core INTERFACE)
 
