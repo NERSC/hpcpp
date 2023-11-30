@@ -14,9 +14,11 @@ default:
 workflow:
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-      when: always
       variables:
         install_prefix: ${CI_PROJECT_DIR}/merge_request_install
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      variables:
+        install_prefix: ${CI_PROJECT_DIR}/default_branch_install
     - when: always
       variables:
         install_prefix: ${CI_PROJECT_DIR}/any_branch_install
