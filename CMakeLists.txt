@@ -80,6 +80,7 @@ set(CXX_STANDARD_REQUIRED ON)
 
 # required minimum CXX standard
 set(CMAKE_CXX_STANDARD_REQUIRED 23)
+set(CMAKE_GNU_EXTENSIONS ON)
 
 if(NOT CXX_STANDARD OR (CXX_STANDARD LESS ${CMAKE_CXX_STANDARD_REQUIRED}))
   set(CXX_STANDARD ${CMAKE_CXX_STANDARD_REQUIRED})
@@ -137,33 +138,33 @@ cpmaddpackage(
 
 cpmaddpackage(
   NAME
-  mdspan 
+  mdspan
   GITHUB_REPOSITORY
   kokkos/mdspan
   GIT_TAG
   stable# This will always pull the latest code from the `main` branch. You may
         # also use a specific release version or tag
-  ) 
+  )
 
 cpmaddpackage(
   NAME
-  fmt 
+  fmt
   GITHUB_REPOSITORY
   fmtlib/fmt
   GIT_TAG
   master# This will always pull the latest code from the `main` branch. You may
         # also use a specific release version or tag
-  ) 
+  )
 
 cpmaddpackage(
   NAME
-  mdspan_formatter 
+  mdspan_formatter
   GITHUB_REPOSITORY
   weilewei/mdspan_formatter
   GIT_TAG
   main# This will always pull the latest code from the `main` branch. You may
         # also use a specific release version or tag
-  ) 
+  )
 
 add_library(hpcpp-core INTERFACE)
 
