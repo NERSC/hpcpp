@@ -19,6 +19,9 @@ workflow:
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
       variables:
         install_prefix: ${CI_PROJECT_DIR}/default_branch_install
+    - if: $CI_COMMIT_BRANCH && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH
+      variables:
+        install_prefix: ${CI_PROJECT_DIR}/feature_branch_install
 
 build:
   stage: build
