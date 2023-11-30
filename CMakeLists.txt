@@ -27,8 +27,7 @@ endif()
 
 # cmake min required
 cmake_minimum_required(VERSION 3.22.1 FATAL_ERROR)
-project(nvstdpar)
-project(nvstdpar LANGUAGES CXX CUDA)
+project(hpcpp LANGUAGES CXX CUDA)
 
 # in source build warning
 if("${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}")
@@ -45,16 +44,16 @@ endif()
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/external/")
 
 # Set a default build type if none was specified
-set(NVSTDPAR_BUILD_TYPE "RelWithDebInfo")
+set(HPCPP_BUILD_TYPE "RelWithDebInfo")
 
 # set the build type
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(
     STATUS
-      "${BoldCyan}Setting build type to '${NVSTDPAR_BUILD_TYPE}' as none was specified.${ColourReset}"
+      "${BoldCyan}Setting build type to '${HPCPP_BUILD_TYPE}' as none was specified.${ColourReset}"
   )
   set(CMAKE_BUILD_TYPE
-      "${NVSTDPAR_BUILD_TYPE}"
+      "${HPCPP_BUILD_TYPE}"
       CACHE STRING "Choose the type of build." FORCE)
   # Set the possible values of build type for cmake-gui
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release"
@@ -69,7 +68,7 @@ set(GCC_EXPECTED_VERSION 11.2)
 if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS GCC_EXPECTED_VERSION)
   message(
     FATAL_ERROR
-      "GCC: nvstdpar requires GCC v${GCC_EXPECTED_VERSION} or higher to build but found v${CMAKE_CXX_COMPILER_VERSION}"
+      "GCC: hpcpp requires GCC v${GCC_EXPECTED_VERSION} or higher to build but found v${CMAKE_CXX_COMPILER_VERSION}"
   )
 endif()
 
@@ -126,8 +125,7 @@ cpmaddpackage(
   GITHUB_REPOSITORY
   NVIDIA/stdexec
   GIT_TAG
-  main # This will always pull the latest code from the `main` branch. You may
-       # also use a specific release version or tag
+  main
   OPTIONS
   "STDEXEC_ENABLE_CUDA ON"
   "STDEXEC_BUILD_EXAMPLES OFF"
@@ -141,8 +139,7 @@ cpmaddpackage(
   GITHUB_REPOSITORY
   kokkos/mdspan
   GIT_TAG
-  stable# This will always pull the latest code from the `main` branch. You may
-        # also use a specific release version or tag
+  stable
   ) 
 
 cpmaddpackage(
@@ -151,8 +148,7 @@ cpmaddpackage(
   GITHUB_REPOSITORY
   fmtlib/fmt
   GIT_TAG
-  master# This will always pull the latest code from the `main` branch. You may
-        # also use a specific release version or tag
+  master
   ) 
 
 cpmaddpackage(
@@ -161,8 +157,16 @@ cpmaddpackage(
   GITHUB_REPOSITORY
   weilewei/mdspan_formatter
   GIT_TAG
-  main# This will always pull the latest code from the `main` branch. You may
-        # also use a specific release version or tag
+  main
+  ) 
+
+cpmaddpackage(
+  NAME
+  argparse 
+  GITHUB_REPOSITORY
+  mhaseeb123/argparse
+  GIT_TAG
+  master 
   ) 
 
 add_library(hpcpp-core INTERFACE)
@@ -172,6 +176,7 @@ target_link_libraries(hpcpp-core INTERFACE
   mdspan
   fmt
   mdspan_formatter
+  argparse
 )
 
 # stdpar and openmp
@@ -219,15 +224,8 @@ endif()
 # ##############################################################################
 
 # ----------------------------------------------------------------------------------------#
-# externals
-# ----------------------------------------------------------------------------------------#
-
-message(STATUS "Adding externals...")
-add_subdirectory(externals)
-
-# ----------------------------------------------------------------------------------------#
 # apps
 # ----------------------------------------------------------------------------------------#
 
-message(STATUS "Adding nvstdpar apps...")
+message(STATUS "Adding hpcpp apps...")
 add_subdirectory(apps)

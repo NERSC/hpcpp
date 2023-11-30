@@ -13,7 +13,7 @@ message(STATUS "Adding heat-equation...")
 add_subdirectory(heat-equation)
 
 # ----------------------------------------------------------------------------------------#
-# Add MDSPAN + nvstdpar demo
+# Add MDSPAN + hpcpp demo
 # ----------------------------------------------------------------------------------------#
 
 message(STATUS "Adding mdspan-stdpar...")

@@ -27,8 +27,8 @@
 #include "commons.hpp"
 //
 // Build and run on Perlmutter using
-// ml nvhpc/23.1 ; nvc++ -stdpar=gpu -std=c++20 -o nvstdpar.out
-// ./nvstdpar_nosenders.cpp && nsys profile --stats=true ./nvstdpar.out
+// ml nvhpc/23.1 ; nvc++ -stdpar=gpu -std=c++20 -o hpcpp.out
+// ./hpcpp_nosenders.cpp && nsys profile --stats=true ./hpcpp.out
 //
 
 using T = double;

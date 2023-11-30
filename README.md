@@ -1,11 +1,12 @@
-# nvstdpar
+# hpcpp 
+
 Standard C++26 (single-source) HPC proxy apps that run on CPUs and GPUs (powered by `nv-std::execution`).
 
 ## Build
 
 ```bash
 git clone --recursive https://github.com/NERSC/hpcpp.git
-cd nvstdpar ; mkdir build ; cd build
+cd hpcpp; mkdir build ; cd build
 ml nvhpc/23.7 cmake 3.24
 
 # enable GPU support by setting -DSTDPAR=gpu (default)
@@ -18,7 +19,7 @@ cmake .. -DSTDPAR=<gpu/multicore> ; make -j
 You can also use the pre-configured `localrc` file included in this repo. To use it, run:
 
 ```bash
-export GCCLOCALRC=/path/to/nvstdpar/scripts/pm-localrc/localrc
+export GCCLOCALRC=/path/to/hpcpp/scripts/pm-localrc/localrc
 ```
 
 **Note**: Please uncomment the following line in `apps/fft/CMakeLists.txt` if using `nvc++` version < 23.7?
@@ -31,7 +32,7 @@ export GCCLOCALRC=/path/to/nvstdpar/scripts/pm-localrc/localrc
 ## Run Apps
 
 ```bash
-cd nvstdpar/build
+cd hpcpp/build
 srun -n 1 -N 1 -G <> -A <acct> -t 30 -C <cpu/gpu> ./apps/<appname>/<appname> [ARGS]
 ```
 
