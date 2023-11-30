@@ -139,7 +139,8 @@ cpmaddpackage(
   mdspan
   GITHUB_REPOSITORY
   kokkos/mdspan
-  stable
+  GIT_TAG
+  stable 
   )
 
 cpmaddpackage(
