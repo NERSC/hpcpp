@@ -30,14 +30,14 @@
 
 #pragma once
 
-#include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>
+#include <stdexec/execution.hpp>
 
 #if defined(USE_GPU)
-  #include <nvexec/stream_context.cuh>
-  #include <nvexec/multi_gpu_context.cuh>
+#include <nvexec/multi_gpu_context.cuh>
+#include <nvexec/stream_context.cuh>
 using namespace nvexec;
-#endif //USE_GPU
+#endif  //USE_GPU
 
 #include <experimental/linalg>
 #include "argparse/argparse.hpp"
@@ -61,231 +61,190 @@ using data_t = std::complex<Real_t>;
 
 // enum for signal types
 enum sig_type { square, sinusoid, sawtooth, triangle, sinc, box };
+
 using sig_type_t = sig_type;
 
 // map for signals
-std::map<std::string, sig_type_t> sigmap{{"square",sig_type_t::square}, {"sinusoid", sig_type_t::sinusoid}, {"triangle", sig_type_t::sawtooth},
-                           {"triangle", sig_type_t::triangle}, {"sinc", sig_type_t::sinc}, {"box", sig_type_t::box}};
+std::map<std::string, sig_type_t> sigmap{{"square", sig_type_t::square},     {"sinusoid", sig_type_t::sinusoid},
+                                         {"triangle", sig_type_t::sawtooth}, {"triangle", sig_type_t::triangle},
+                                         {"sinc", sig_type_t::sinc},         {"box", sig_type_t::box}};
 
 // custom get sig_type_t from string
-sig_type_t getSignal(std::string &sig)
-{
-    if (sigmap.contains(sig))
-    {
-      return sigmap[sig];
-    }
-    else
-    {
-      return (sig_type_t)(-1);
+sig_type_t getSignal(std::string& sig) {
+    if (sigmap.contains(sig)) {
+        return sigmap[sig];
+    } else {
+        return (sig_type_t)(-1);
     }
 }
 
 // input arguments
 struct fft_params_t : public argparse::Args {
-  // NVC++ is not supported by magic_enum so using strings
-  std::string& sig = kwarg("sig", "input signal type: square, sinusoid, sawtooth, triangle, box").set_default("box");
+    // NVC++ is not supported by magic_enum so using strings
+    std::string& sig = kwarg("sig", "input signal type: square, sinusoid, sawtooth, triangle, box").set_default("box");
 
-  int& freq = kwarg("f,freq", "Signal frequency").set_default(1024);
-  int& N = kwarg("N", "N-point FFT").set_default(1024);
-  bool& print_sig = flag("p,print", "print x[n] and X(k)");
-  int& max_threads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
+    int& freq = kwarg("f,freq", "Signal frequency").set_default(1024);
+    int& N = kwarg("N", "N-point FFT").set_default(1024);
+    bool& print_sig = flag("p,print", "print x[n] and X(k)");
+    int& max_threads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 
 #if defined(FFT_STDEXEC)
-  std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
-  #if defined (USE_GPU)
-                          ", gpu, multigpu"
-  #endif //USE_GPU
-                          "]").set_default("cpu");
+    std::string& sch = kwarg("sch",
+                             "stdexec scheduler: [options: cpu"
+#if defined(USE_GPU)
+                             ", gpu, multigpu"
+#endif  //USE_GPU
+                             "]")
+                           .set_default("cpu");
 #endif  // FFT_STDEXEC
 
-  bool& validate = flag("validate", "validate the results via y[k] = WNk * x[n]");
-  bool& help = flag("h, help", "print help");
-  bool& print_time = flag("t,time", "print fft time");
-  bool& debug = flag("d,debug", "print internal timers and launch configs");
+    bool& validate = flag("validate", "validate the results via y[k] = WNk * x[n]");
+    bool& help = flag("h, help", "print help");
+    bool& print_time = flag("t,time", "print fft time");
+    bool& debug = flag("d,debug", "print internal timers and launch configs");
 };
 
-inline std::complex<Real_t> WNk(int N, int k)
-{
-    return std::complex<Real_t>(exp(-2*M_PI*1/N*k*1i));
+inline std::complex<Real_t> WNk(int N, int k) {
+    return std::complex<Real_t>(exp(-2 * M_PI * 1 / N * k * 1i));
 }
 
-class signal
-{
-public:
+class signal {
+   public:
+    signal() = default;
 
-  signal() = default;
-  signal(int N)
-  {
-    if (N <= 0)
-    {
-      std::cerr << "ERROR: N must be > 0. exiting.." << std::endl;
-      exit(1);
-    }
-    y.reserve(ceilPowOf2(N));
-    y.resize(N);
-  }
-
-  signal(signal &rhs)
-  {
-    y = rhs.y;
-  }
-
-  signal(std::vector<data_t> &&in)
-  {
-    y = std::move(in);
-  }
-
-  signal(std::vector<data_t> &in)
-  {
-    y = std::move(in);
-  }
-
-  signal(int N, sig_type type, int threads = std::thread::hardware_concurrency())
-  {
-    if (N <= 0)
-    {
-      std::cerr << "ERROR: N must be > 0. exiting.." << std::endl;
-      exit(1);
-    }
-    y.reserve(ceilPowOf2(N));
-    y.resize(N);
-    signalGenerator(type, threads);
-  }
-
-  void signalGenerator(sig_type type=sig_type::box, int threads = std::thread::hardware_concurrency())
-  {
-    int N = y.size();
-
-    // scheduler from a thread pool
-    exec::static_thread_pool ctx{threads};
-    scheduler auto sch = ctx.get_scheduler();
-
-    // start scheduling
-    sender auto start = schedule(sch);
-
-    // generate input signal
-    switch (type) {
-      case sig_type::square:
-        sync_wait(bulk(start, N, [&](int n) {
-            y[n] = (n < N / 4 || n >= 3 * N/4) ? 1.0 : -1.0;
-        }));
-        break;
-      case sig_type::sinusoid:
-        sync_wait(bulk(start, N, [&](int n) {
-          y[n] = std::sin(2.0 * M_PI * n / N);
-        }));
-        break;
-      case sig_type::sawtooth:
-        sync_wait(bulk(start, N, [&](int n) {
-          y[n] = 2.0 * (n / N) - 1.0;
-        }));
-        break;
-      case sig_type::triangle:
-        sync_wait(bulk(start, N, [&](int n) {
-          y[n] = 2.0 * std::abs(2.0 * (n / N) - 1.0) - 1.0;
-        }));
-        break;
-      case sig_type::sinc:
-          y[0] = 1.0;
-          sync_wait(bulk(start, N-1, [&](int n) {
-            y[n+1] = std::sin(2.0 * M_PI * (n+1) / N) / (2.0 * M_PI * (n+1) / N);
-          }));
-        break;
-      case sig_type::box:
-        sync_wait(bulk(start, N, [&](int n) {
-          y[n] = (n < N / 4 || n >= 3 * N / 4) ? 1.0 : 0.0;
-        }));
-        break;
-      default:
-        std::cerr << "ERROR: Unknown input signal type. exiting.." << std::endl;
-        std::cerr << "Run: <FFT_app> --help to see the list of available signals" << std::endl;
-        exit(1);
-    }
-  }
-
-  ~signal()
-  {
-    y.clear();
-  }
-
-  data_t *data() { return y.data(); }
-  int len() { return y.size(); }
-
-  void resize(int N)
-  {
-    if (N != y.size())
-      y.resize(N, 0);
-  }
-
-  data_t &operator[](int n)
-  {
-    return y[n];
-  }
-
-  data_t &operator()(int n)
-  {
-    return y[n];
-  }
-
-  void printSignal() {
-      fmt::print("{} \n", y);
-  }
-
-  [[nodiscard]] bool isFFT(signal &X, scheduler auto sch, int maxN = 20000)
-  {
-    int N = y.size();
-    bool ret = true;
-
-    if (X.len() > maxN)
-    {
-      fmt::print("Input signal may be too large to compute DFT via y[n] = WNk * x[n]. Segfaults expected..\n");
+    signal(int N) {
+        if (N <= 0) {
+            std::cerr << "ERROR: N must be > 0. exiting.." << std::endl;
+            exit(1);
+        }
+        y.reserve(ceilPowOf2(N));
+        y.resize(N);
     }
 
-    std::vector<data_t> Y(N);
-    std::vector<data_t> M(N*N);
+    signal(signal& rhs) { y = rhs.y; }
 
-    auto A   = std::mdspan<data_t, view_2d, std::layout_right>(M.data(), N, N);
-    auto mdy = std::mdspan<data_t, view_2d, std::layout_right>(y.data(), N, 1);
-    auto mdY = std::mdspan<data_t, view_2d, std::layout_right>(Y.data(), N, 1);
+    signal(std::vector<data_t>&& in) { y = std::move(in); }
 
-    data_t *F = M.data();
-    data_t *X_ptr = X.data();
-    data_t *Y_ptr = Y.data();
+    signal(std::vector<data_t>& in) { y = std::move(in); }
 
-    ex::sender auto init = ex::transfer_just(sch, F) | ex::bulk(N*N, [=](int k, auto F){
-      int i = k / N;
-      int j = k % N;
-      F[k] = WNk(N, i*j);
-    });
+    signal(int N, sig_type type, int threads = std::thread::hardware_concurrency()) {
+        if (N <= 0) {
+            std::cerr << "ERROR: N must be > 0. exiting.." << std::endl;
+            exit(1);
+        }
+        y.reserve(ceilPowOf2(N));
+        y.resize(N);
+        signalGenerator(type, threads);
+    }
 
-    // initialize
-    ex::sync_wait(init);
+    void signalGenerator(sig_type type = sig_type::box, int threads = std::thread::hardware_concurrency()) {
+        int N = y.size();
 
-    // compute Y[n] = dft(x[n]) = WNk * x[n]
-    stdex::linalg::matrix_product(std::execution::par, A, mdy, mdY);
+        // scheduler from a thread pool
+        exec::static_thread_pool ctx{threads};
+        scheduler auto sch = ctx.get_scheduler();
 
-    // compare the computed Y[n] (dft) with X[n](fft)
-    ex::sender auto verify = ex::transfer_just(sch, ret, X_ptr, Y_ptr)
-    | ex::bulk(N, [](int k, auto &ret, auto X_ptr, auto Y_ptr){
-      if (!complex_compare(X_ptr[k], Y_ptr[k]))
-      {
-        //std::cout << "y[" << i << "] = " << X[i] << " != x[" << i << "] = " << Y[i] << std::endl;
-        ret = false;
-      }
-    })
-    | then([](auto ret, auto &&...)
-    {
-      return ret;
-    });
+        // start scheduling
+        sender auto start = schedule(sch);
 
-    // let the pipeline run
-    auto [re] = ex::sync_wait(verify).value();
+        // generate input signal
+        switch (type) {
+            case sig_type::square:
+                sync_wait(bulk(start, N, [&](int n) { y[n] = (n < N / 4 || n >= 3 * N / 4) ? 1.0 : -1.0; }));
+                break;
+            case sig_type::sinusoid:
+                sync_wait(bulk(start, N, [&](int n) { y[n] = std::sin(2.0 * M_PI * n / N); }));
+                break;
+            case sig_type::sawtooth:
+                sync_wait(bulk(start, N, [&](int n) { y[n] = 2.0 * (n / N) - 1.0; }));
+                break;
+            case sig_type::triangle:
+                sync_wait(bulk(start, N, [&](int n) { y[n] = 2.0 * std::abs(2.0 * (n / N) - 1.0) - 1.0; }));
+                break;
+            case sig_type::sinc:
+                y[0] = 1.0;
+                sync_wait(bulk(start, N - 1, [&](int n) {
+                    y[n + 1] = std::sin(2.0 * M_PI * (n + 1) / N) / (2.0 * M_PI * (n + 1) / N);
+                }));
+                break;
+            case sig_type::box:
+                sync_wait(bulk(start, N, [&](int n) { y[n] = (n < N / 4 || n >= 3 * N / 4) ? 1.0 : 0.0; }));
+                break;
+            default:
+                std::cerr << "ERROR: Unknown input signal type. exiting.." << std::endl;
+                std::cerr << "Run: <FFT_app> --help to see the list of available signals" << std::endl;
+                exit(1);
+        }
+    }
 
-    return re;
-  }
-private:
-  // y[n]
-  std::vector<data_t> y;
+    ~signal() { y.clear(); }
+
+    data_t* data() { return y.data(); }
+
+    int len() { return y.size(); }
+
+    void resize(int N) {
+        if (N != y.size())
+            y.resize(N, 0);
+    }
+
+    data_t& operator[](int n) { return y[n]; }
+
+    data_t& operator()(int n) { return y[n]; }
+
+    void printSignal() { fmt::print("{} \n", y); }
+
+    [[nodiscard]] bool isFFT(signal& X, scheduler auto sch, int maxN = 20000) {
+        int N = y.size();
+        bool ret = true;
+
+        if (X.len() > maxN) {
+            fmt::print("Input signal may be too large to compute DFT via y[n] = WNk * x[n]. Segfaults expected..\n");
+        }
+
+        std::vector<data_t> Y(N);
+        std::vector<data_t> M(N * N);
+
+        auto A = std::mdspan<data_t, view_2d, std::layout_right>(M.data(), N, N);
+        auto mdy = std::mdspan<data_t, view_2d, std::layout_right>(y.data(), N, 1);
+        auto mdY = std::mdspan<data_t, view_2d, std::layout_right>(Y.data(), N, 1);
+
+        data_t* F = M.data();
+        data_t* X_ptr = X.data();
+        data_t* Y_ptr = Y.data();
+
+        ex::sender auto init = ex::transfer_just(sch, F) | ex::bulk(N * N, [=](int k, auto F) {
+                                   int i = k / N;
+                                   int j = k % N;
+                                   F[k] = WNk(N, i * j);
+                               });
+
+        // initialize
+        ex::sync_wait(init);
+
+        // compute Y[n] = dft(x[n]) = WNk * x[n]
+        stdex::linalg::matrix_product(std::execution::par, A, mdy, mdY);
+
+        // compare the computed Y[n] (dft) with X[n](fft)
+        ex::sender auto verify = ex::transfer_just(sch, ret, X_ptr, Y_ptr) |
+                                 ex::bulk(N,
+                                          [](int k, auto& ret, auto X_ptr, auto Y_ptr) {
+                                              if (!complex_compare(X_ptr[k], Y_ptr[k])) {
+                                                  //std::cout << "y[" << i << "] = " << X[i] << " != x[" << i << "] = " << Y[i] << std::endl;
+                                                  ret = false;
+                                              }
+                                          }) |
+                                 then([](auto ret, auto&&...) { return ret; });
+
+        // let the pipeline run
+        auto [re] = ex::sync_wait(verify).value();
+
+        return re;
+    }
+
+   private:
+    // y[n]
+    std::vector<data_t> y;
 };
 
 using sig_t = signal;

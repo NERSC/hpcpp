@@ -34,22 +34,22 @@
 #include <bit>
 #include <cassert>
 #include <chrono>
+#include <complex>
 #include <cstddef>
 #include <cstdint>
 #include <execution>
 #include <functional>
 #include <iostream>
-#include <random>
 #include <iterator>
 #include <map>
 #include <memory>
 #include <numeric>
+#include <random>
 #include <span>
 #include <thread>
 #include <type_traits>
 #include <typeinfo>
 #include <vector>
-#include <complex>
 
 #include <fmt/core.h>
 #include <fmt/ranges.h>
@@ -59,10 +59,11 @@
 #include "counting_iterator.hpp"
 
 template <typename T>
-requires std::floating_point<T>
-struct fmt::formatter<std::complex<T>> {
+requires std::floating_point<T> struct fmt::formatter<std::complex<T>> {
     template <typename ParseContext>
-    constexpr auto parse(ParseContext& ctx) { return ctx.begin(); }
+    constexpr auto parse(ParseContext& ctx) {
+        return ctx.begin();
+    }
 
     template <typename FormatContext>
     auto format(const std::complex<T>& c, FormatContext& ctx) const {
@@ -112,10 +113,11 @@ enum class sch_t { CPU, GPU, MULTIGPU };
 [[nodiscard]] sch_t get_sch_enum(std::string_view str) {
     static const std::map<std::string_view, sch_t> schmap = {
         {"cpu", sch_t::CPU},
-#if defined (USE_GPU)
-        {"gpu", sch_t::GPU}, {"multigpu", sch_t::MULTIGPU}
-#endif // USE_GPU
-};
+#if defined(USE_GPU)
+        {"gpu", sch_t::GPU},
+        {"multigpu", sch_t::MULTIGPU}
+#endif  // USE_GPU
+    };
 
     if (schmap.contains(str)) {
         return schmap.at(str);
@@ -124,7 +126,7 @@ enum class sch_t { CPU, GPU, MULTIGPU };
     throw std::invalid_argument("FATAL: " + std::string(str) +
                                 " is not a stdexec scheduler.\n"
                                 "Available schedulers: cpu"
-#if defined (USE_GPU)
+#if defined(USE_GPU)
                                 ", gpu, multigpu"
 #endif
                                 "\n"
@@ -132,27 +134,24 @@ enum class sch_t { CPU, GPU, MULTIGPU };
 }
 
 inline bool isPowOf2(long long int x) {
-  return !(x == 0) && !(x & (x - 1));
+    return !(x == 0) && !(x & (x - 1));
 }
 
-inline int ceilPowOf2(unsigned int v)
-{
-  return static_cast<int>(std::bit_ceil(v));
+inline int ceilPowOf2(unsigned int v) {
+    return static_cast<int>(std::bit_ceil(v));
 }
 
-inline int ilog2(uint32_t x)
-{
+inline int ilog2(uint32_t x) {
     return static_cast<int>(log2(x));
 }
+
 template <typename T>
-bool complex_compare(T a, T b, double error = 0.0101)
-{
-  auto r = (fabs(a.real() - b.real()) < error)? true: false;
-  return r && (fabs(a.imag() - b.imag()) < error)? true: false;
+bool complex_compare(T a, T b, double error = 0.0101) {
+    auto r = (fabs(a.real() - b.real()) < error) ? true : false;
+    return r && (fabs(a.imag() - b.imag()) < error) ? true : false;
 }
 
-uint32_t reverse_bits32(uint32_t x)
-{
+uint32_t reverse_bits32(uint32_t x) {
     x = ((x & 0xaaaaaaaa) >> 1) | ((x & 0x55555555) << 1);
     x = ((x & 0xcccccccc) >> 2) | ((x & 0x33333333) << 2);
     x = ((x & 0xf0f0f0f0) >> 4) | ((x & 0x0f0f0f0f) << 4);

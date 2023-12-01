@@ -61,9 +61,9 @@ struct args_params_t : public argparse::Args {
 using Real_t = double;
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
-constexpr Real_t k = 0.5;      // heat transfer coefficient
-constexpr Real_t dt = 1.;      // time step
-constexpr Real_t dx = 1.;      // grid spacing
+constexpr Real_t k = 0.5;  // heat transfer coefficient
+constexpr Real_t dt = 1.;  // time step
+constexpr Real_t dx = 1.;  // grid spacing
 
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
@@ -74,37 +74,44 @@ struct stepper {
         std::vector<Real_t> current(size);
         std::vector<Real_t> next(size);
 
-        Real_t **next_ptr_ptr = new Real_t *(next.data());
-        Real_t **current_ptr_ptr = new Real_t*(current.data());
+        Real_t** next_ptr_ptr = new Real_t*(next.data());
+        Real_t** current_ptr_ptr = new Real_t*(current.data());
 
-        stdexec::sender auto init = stdexec::bulk(stdexec::schedule(sch), size, [=](int i) { auto current_ptr = *current_ptr_ptr; ; current_ptr[i] = (Real_t)i; });
+        stdexec::sender auto init = stdexec::bulk(stdexec::schedule(sch), size, [=](int i) {
+            auto current_ptr = *current_ptr_ptr;
+            ;
+            current_ptr[i] = (Real_t)i;
+        });
         stdexec::sync_wait(std::move(init));
 
 #if !defined(USE_GPU)
         for (auto iter = 0; iter < nt; iter++)
 #endif
-        // evolve the system
-        stdexec::sync_wait(
+            // evolve the system
+            stdexec::sync_wait(
 #if defined(USE_GPU)
-            ex::just() | exec::on(sch,
-           repeat_n(
-             nt,
+                ex::just() |
+                exec::on(sch, repeat_n(nt,
 #else
             stdexec::schedule(sch) |
 #endif
-             stdexec::bulk(size, [=](int i) {
-                    auto current_ptr = *current_ptr_ptr;
-                    auto next_ptr = *next_ptr_ptr;
+                                       stdexec::bulk(size,
+                                                     [=](int i) {
+                                                         auto current_ptr = *current_ptr_ptr;
+                                                         auto next_ptr = *next_ptr_ptr;
 
-                    std::size_t left = (i == 0) ? size - 1 : i - 1;
-                    std::size_t right = (i == size - 1) ? 0 : i + 1;
-                    next_ptr[i] = current_ptr[i] + (k * dt / (dx * dx)) * (current_ptr[left] - 2 * current_ptr[i] + current_ptr[right]);
-                })
-            | stdexec::then([=]() { std::swap(*next_ptr_ptr, *current_ptr_ptr); })
+                                                         std::size_t left = (i == 0) ? size - 1 : i - 1;
+                                                         std::size_t right = (i == size - 1) ? 0 : i + 1;
+                                                         next_ptr[i] = current_ptr[i] +
+                                                                       (k * dt / (dx * dx)) *
+                                                                           (current_ptr[left] - 2 * current_ptr[i] +
+                                                                            current_ptr[right]);
+                                                     }) |
+                                           stdexec::then([=]() { std::swap(*next_ptr_ptr, *current_ptr_ptr); })
 #if defined(USE_GPU)
-            ))
-#endif // USE_GPU
-        );
+                                           ))
+#endif  // USE_GPU
+            );
 
         if (nt % 2 == 0) {
             return current;
@@ -157,11 +164,11 @@ int benchmark(args_params_t const& args) {
 
     // Print the final solution
     if (args.results) {
-      fmt::println("{::f}", solution);
+        fmt::println("{::f}", solution);
     }
 
     if (args.time) {
-      fmt::print("Duration: {:f} ms\n", time);
+        fmt::print("Duration: {:f} ms\n", time);
     }
 
     return 0;

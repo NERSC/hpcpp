@@ -30,14 +30,14 @@
 
 #pragma once
 
-#include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>
+#include <stdexec/execution.hpp>
 
 #if defined(USE_GPU)
-  #include <nvexec/stream_context.cuh>
-  #include <nvexec/multi_gpu_context.cuh>
+#include <nvexec/multi_gpu_context.cuh>
+#include <nvexec/stream_context.cuh>
 using namespace nvexec;
-#endif //USE_GPU
+#endif  //USE_GPU
 
 #include "argparse/argparse.hpp"
 
@@ -52,29 +52,29 @@ using data_t = unsigned long long;
 
 // input arguments
 struct prefixSum_params_t : public argparse::Args {
-  int& N = kwarg("N", "array size").set_default(1e9);
-  bool& print_arr = flag("p,print", "print array and prefixSum");
-  int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
+    int& N = kwarg("N", "array size").set_default(1e9);
+    bool& print_arr = flag("p,print", "print array and prefixSum");
+    int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 
 #if defined(PSUM_STDEXEC)
-  std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
-  #if defined (USE_GPU)
-                          ", gpu, multigpu"
-  #endif //USE_GPU
-                          "]").set_default("cpu");
+    std::string& sch = kwarg("sch",
+                             "stdexec scheduler: [options: cpu"
+#if defined(USE_GPU)
+                             ", gpu, multigpu"
+#endif  //USE_GPU
+                             "]")
+                           .set_default("cpu");
 #endif  // PSUM_STDEXEC
 
-  bool& validate = flag("validate", "validate the results");
-  bool& help = flag("h, help", "print help");
-  bool& print_time = flag("t,time", "print prefixSum time");
-  bool& debug = flag("d,debug", "print internal timers and configs (if any)");
+    bool& validate = flag("validate", "validate the results");
+    bool& help = flag("h, help", "print help");
+    bool& print_time = flag("t,time", "print prefixSum time");
+    bool& debug = flag("d,debug", "print internal timers and configs (if any)");
 };
 
-namespace psum
-{
+namespace psum {
 template <typename T>
-[[nodiscard]] bool validatePrefixSum(T *in, data_t *out, size_t N)
-{
+[[nodiscard]] bool validatePrefixSum(T* in, data_t* out, size_t N) {
     fmt::print("Validating: \n");
 
     // compute inclusive_scan via parSTL
@@ -86,14 +86,13 @@ template <typename T>
 }
 
 template <typename T>
-void genRandomVector(T *in, int N, T lower, T upper)
-{
+void genRandomVector(T* in, int N, T lower, T upper) {
     // random number generator
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<T> dist(lower, upper);
 
     // fill random between 1 to 10
-    std::generate(std::execution::seq, in, in+N, [&gen,&dist]() { return dist(gen); });
+    std::generate(std::execution::seq, in, in + N, [&gen, &dist]() { return dist(gen); });
 }
-}
+}  // namespace psum

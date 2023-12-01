@@ -36,70 +36,64 @@
 // stdexec prefixSum function
 //
 template <typename T>
-[[nodiscard]] T* prefixSum(scheduler auto &&sch, const T* in, const int N)
-{
+[[nodiscard]] T* prefixSum(scheduler auto&& sch, const T* in, const int N) {
     // allocate a N+1 size array as there will be a trailing zero
-    T *y = new T[N+1];
+    T* y = new T[N + 1];
 
     // number of iterations
     int niters = ilog2(N);
 
     // need to be dynamic memory to be able to use it in gpu ctx.
-    int *d_ptr = new int(0);
+    int* d_ptr = new int(0);
 
     // memcpy to output vector to start computation.
-    ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k){ y[k] = in[k]; }));
+    ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k) { y[k] = in[k]; }));
 
     // GE Blelloch (1990) algorithm from pseudocode at:
     // https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda
 
     // upsweep
-    for (int d = 0; d < niters; d++)
-    {
-        int bsize = N/(1 << d+1);
+    for (int d = 0; d < niters; d++) {
+        int bsize = N / (1 << d + 1);
 
-        ex::sender auto uSweep = schedule(sch)
-            | ex::bulk(bsize, [=](int k) {
-                // stride1 = 2^(d+1)
-                int st1 = 1 << d+1;
-                // stride2 = 2^d
-                int st2 = 1 << d;
-                // only the threads at indices (k+1) * 2^(d+1) -1 will compute
-                int myIdx = (k+1) * st1 - 1;
+        ex::sender auto uSweep = schedule(sch) | ex::bulk(bsize, [=](int k) {
+                                     // stride1 = 2^(d+1)
+                                     int st1 = 1 << d + 1;
+                                     // stride2 = 2^d
+                                     int st2 = 1 << d;
+                                     // only the threads at indices (k+1) * 2^(d+1) -1 will compute
+                                     int myIdx = (k + 1) * st1 - 1;
 
-                // update y[myIdx]
-                y[myIdx] += y[myIdx-st2];
-            }
-        );
+                                     // update y[myIdx]
+                                     y[myIdx] += y[myIdx - st2];
+                                 });
         // wait for upsweep
         ex::sync_wait(uSweep);
     }
 
     // write sum to y[N] and reset vars
-    ex::sync_wait(schedule(sch) | ex::then([=](){
-        y[N] = y[N-1];
-        y[N-1] = 0;
-    }));
+    ex::sync_wait(schedule(sch) | ex::then([=]() {
+                      y[N] = y[N - 1];
+                      y[N - 1] = 0;
+                  }));
 
     // downsweep
-    for (int d = niters-1; d >= 0; d--)
-    {
-        int bsize = N/(1 << d+1);
+    for (int d = niters - 1; d >= 0; d--) {
+        int bsize = N / (1 << d + 1);
 
-        ex::sender auto dSweep = schedule(sch)
-            | ex::bulk(bsize, [=](int k){
-            // stride1 = 2^(d+1)
-            int st1 = 1 << d+1;
-            // stride2 = 2^d
-            int st2 = 1 << d;
-            // only the threads at indices (k+1) * 2^(d+1) -1 will compute
-            int myIdx = (k+1) * st1 - 1;
+        ex::sender auto dSweep = schedule(sch) | ex::bulk(bsize, [=](int k) {
+                                     // stride1 = 2^(d+1)
+                                     int st1 = 1 << d + 1;
+                                     // stride2 = 2^d
+                                     int st2 = 1 << d;
+                                     // only the threads at indices (k+1) * 2^(d+1) -1 will compute
+                                     int myIdx = (k + 1) * st1 - 1;
 
-            // update y[myIdx] and y[myIdx-stride2]
-            auto tmp = y[myIdx];
-            y[myIdx] += y[myIdx-st2];
-            y[myIdx-st2] = tmp;
-        });
+                                     // update y[myIdx] and y[myIdx-stride2]
+                                     auto tmp = y[myIdx];
+                                     y[myIdx] += y[myIdx - st2];
+                                     y[myIdx - st2] = tmp;
+                                 });
 
         // wait for downsweep
         ex::sync_wait(dSweep);
@@ -112,14 +106,12 @@ template <typename T>
 //
 // simulation
 //
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     // parse params
     const prefixSum_params_t args = argparse::parse<prefixSum_params_t>(argc, argv);
 
     // see if help wanted
-    if (args.help)
-    {
+    if (args.help) {
         args.print();  // prints all variables
         return 0;
     }
@@ -132,14 +124,13 @@ int main(int argc, char* argv[])
     std::string sched = args.sch;
     int nthreads = args.nthreads;
 
-    if (!isPowOf2(N))
-    {
+    if (!isPowOf2(N)) {
         N = ceilPowOf2(N);
         fmt::print("INFO: N != pow(2). Setting => N = {}\n", N);
     }
 
     // input data
-    data_t *in = new data_t[N];
+    data_t* in = new data_t[N];
 
     fmt::print("Progress:0%");
 
@@ -149,7 +140,7 @@ int main(int argc, char* argv[])
     fmt::print("..50%");
 
     // output pointer
-    data_t *out = nullptr;
+    data_t* out = nullptr;
 
     // start the timer
     Timer timer;
@@ -169,10 +160,10 @@ int main(int argc, char* argv[])
         case sch_t::MULTIGPU:
             out = prefixSum(nvexec::multi_gpu_stream_context().get_scheduler(), in, N);
             break;
-#endif // USE_GPU
+#endif  // USE_GPU
         default:
             throw std::runtime_error("Run: `prefixSum-stdexec --help` to see the list of available schedulers");
-  }
+    }
 
     // stop timer
     auto elapsed = timer.stop();
@@ -180,8 +171,7 @@ int main(int argc, char* argv[])
     fmt::print("..100%\n");
 
     // print the input and its prefix sum (don't if N > 100)
-    if (print_arr && N < 100)
-    {
+    if (print_arr && N < 100) {
         fmt::print("int = {}\n", fmt::join(in, in + N, " "));
         fmt::print("out = {}\n", fmt::join(out + 1, out + 1 + N, " "));
     }
@@ -191,9 +181,8 @@ int main(int argc, char* argv[])
         fmt::print("Elapsed Time: {:f} s\n", elapsed);
 
     // validate the prefixSum
-    if (validate)
-    {
-        bool verify = psum::validatePrefixSum(in, out+1, N);
+    if (validate) {
+        bool verify = psum::validatePrefixSum(in, out + 1, N);
 
         if (verify)
             fmt::print("SUCCESS..");
