@@ -21,3 +21,13 @@ target_include_directories(
 #   choleskey_stdpar_snd
 #   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
 #           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
+
+#tiled cholesky
+include_directories(/global/homes/c/chuanqiu/newrepo/locallib/openblasinstall/include/openblas)  
+link_directories(/global/homes/c/chuanqiu/newrepo/locallib/openblasinstall/lib64/cmake/OpenBLAS)
+add_executable(cholesky_tiled cholesky_tiled.cpp)
+target_link_libraries(cholesky_tiled PRIVATE blas lapack -fortranlibs gfortran)
+target_include_directories(
+  cholesky_tiled
+  PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
+          ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
