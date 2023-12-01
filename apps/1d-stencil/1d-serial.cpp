@@ -29,100 +29,100 @@
 
 // parameters
 struct args_params_t : public argparse::Args {
-  bool& results = kwarg("results", "print generated results (default: false)")
-                      .set_default(false);
-  std::uint64_t& nt = kwarg("nt", "Number of time steps").set_default(45);
-  std::uint64_t& size = kwarg("size", "Number of elements").set_default(10);
-  bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
-  double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
-  double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
-  bool& help = flag("h, help", "print help");
-  bool& time = kwarg("t, time", "print time").set_default(true);
+    bool& results = kwarg("results", "print generated results (default: false)").set_default(false);
+    std::uint64_t& nt = kwarg("nt", "Number of time steps").set_default(45);
+    std::uint64_t& size = kwarg("size", "Number of elements").set_default(10);
+    bool& k = kwarg("k", "Heat transfer coefficient").set_default(0.5);
+    double& dt = kwarg("dt", "Timestep unit (default: 1.0[s])").set_default(1.0);
+    double& dx = kwarg("dx", "Local x dimension").set_default(1.0);
+    bool& help = flag("h, help", "print help");
+    bool& time = kwarg("t, time", "print time").set_default(true);
 };
 
 using Real_t = double;
 ///////////////////////////////////////////////////////////////////////////////
 // Command-line variables
-constexpr Real_t k = 0.5;      // heat transfer coefficient
-constexpr Real_t dt = 1.;      // time step
-constexpr Real_t dx = 1.;      // grid spacing
+constexpr Real_t k = 0.5;  // heat transfer coefficient
+constexpr Real_t dt = 1.;  // time step
+constexpr Real_t dx = 1.;  // grid spacing
 
 ///////////////////////////////////////////////////////////////////////////////
 //[stepper_1
 struct stepper {
-  using view_1d = std::extents<int, std::dynamic_extent>;
-  typedef std::mdspan<Real_t, view_1d, std::layout_right> space;
-  void init_value(auto& data, const std::size_t size) {
-    for (std::size_t i = 0; i != size; ++i) {
-      data[i] = Real_t(i);
-    }
-  }
+    using view_1d = std::extents<int, std::dynamic_extent>;
+    typedef std::mdspan<Real_t, view_1d, std::layout_right> space;
 
-  // Our operator
-  Real_t heat(const Real_t left, const Real_t middle, const Real_t right, const Real_t k = ::k,
-              const Real_t dt = ::dt, const Real_t dx = ::dx) {
-    return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
-  }
-
-  // do all the work on 'size' data points for 'nt' time steps
-  [[nodiscard]] space do_work(const std::size_t size, const std::size_t nt) {
-    Real_t* current_ptr = new Real_t[size];
-    Real_t* next_ptr = new Real_t[size];
-    auto current = space(current_ptr, size);
-    auto next = space(next_ptr, size);
-
-    init_value(current, size);
-
-    // Actual time step loop
-    for (std::size_t t = 0; t != nt; ++t) {
-      for (std::size_t i = 0; i < size; ++i) {
-        std::size_t left = (i == 0) ? size - 1 : i - 1;
-        std::size_t right = (i == size - 1) ? 0 : i + 1;
-        next[i] = heat(current[left], current[i], current[right], k, dt, dx);
-      }
-      std::swap(current, next);
+    void init_value(auto& data, const std::size_t size) {
+        for (std::size_t i = 0; i != size; ++i) {
+            data[i] = Real_t(i);
+        }
     }
 
-    return current;
-  }
+    // Our operator
+    Real_t heat(const Real_t left, const Real_t middle, const Real_t right, const Real_t k = ::k,
+                const Real_t dt = ::dt, const Real_t dx = ::dx) {
+        return middle + (k * dt / (dx * dx)) * (left - 2 * middle + right);
+    }
+
+    // do all the work on 'size' data points for 'nt' time steps
+    [[nodiscard]] space do_work(const std::size_t size, const std::size_t nt) {
+        Real_t* current_ptr = new Real_t[size];
+        Real_t* next_ptr = new Real_t[size];
+        auto current = space(current_ptr, size);
+        auto next = space(next_ptr, size);
+
+        init_value(current, size);
+
+        // Actual time step loop
+        for (std::size_t t = 0; t != nt; ++t) {
+            for (std::size_t i = 0; i < size; ++i) {
+                std::size_t left = (i == 0) ? size - 1 : i - 1;
+                std::size_t right = (i == size - 1) ? 0 : i + 1;
+                next[i] = heat(current[left], current[i], current[right], k, dt, dx);
+            }
+            std::swap(current, next);
+        }
+
+        return current;
+    }
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 int benchmark(args_params_t const& args) {
-  std::uint64_t size = args.size;  // Number of elements.
-  std::uint64_t nt = args.nt;  // Number of steps.
+    std::uint64_t size = args.size;  // Number of elements.
+    std::uint64_t nt = args.nt;      // Number of steps.
 
-  // Create the stepper object
-  stepper step;
+    // Create the stepper object
+    stepper step;
 
-  // Measure execution time.
-  Timer timer;
+    // Measure execution time.
+    Timer timer;
 
-  auto solution = step.do_work(size, nt);
-  auto time = timer.stop();
+    auto solution = step.do_work(size, nt);
+    auto time = timer.stop();
 
-  // Print the final solution
-  if (args.results) {
-    fmt::println("{::f}", solution);
-  }
+    // Print the final solution
+    if (args.results) {
+        fmt::println("{::f}", solution);
+    }
 
-  if (args.time) {
-    fmt::print("Duration: {:f} ms\n", time);
-  }
+    if (args.time) {
+        fmt::print("Duration: {:f} ms\n", time);
+    }
 
-  return 0;
+    return 0;
 }
 
 int main(int argc, char* argv[]) {
-  // parse params
-  args_params_t args = argparse::parse<args_params_t>(argc, argv);
-  // see if help wanted
-  if (args.help) {
-    args.print();  // prints all variables
+    // parse params
+    args_params_t args = argparse::parse<args_params_t>(argc, argv);
+    // see if help wanted
+    if (args.help) {
+        args.print();  // prints all variables
+        return 0;
+    }
+
+    benchmark(args);
+
     return 0;
-  }
-
-  benchmark(args);
-
-  return 0;
 }

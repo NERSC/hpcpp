@@ -134,51 +134,20 @@ cpmaddpackage(
   "STDEXEC_ENABLE_IO_URING_TESTS OFF"
   "BUILD_TESTING OFF")
 
-cpmaddpackage(
-  NAME
-  mdspan
-  GITHUB_REPOSITORY
-  kokkos/mdspan
-  GIT_TAG
-  stable 
-  )
+cpmaddpackage(NAME mdspan GITHUB_REPOSITORY kokkos/mdspan GIT_TAG stable)
 
-cpmaddpackage(
-  NAME
-  fmt
-  GITHUB_REPOSITORY
-  fmtlib/fmt
-  GIT_TAG
-  master
-  )
+cpmaddpackage(NAME fmt GITHUB_REPOSITORY fmtlib/fmt GIT_TAG master)
 
-cpmaddpackage(
-  NAME
-  mdspan_formatter
-  GITHUB_REPOSITORY
-  weilewei/mdspan_formatter
-  GIT_TAG
-  main
-  )
+cpmaddpackage(NAME mdspan_formatter GITHUB_REPOSITORY weilewei/mdspan_formatter
+              GIT_TAG main)
 
-cpmaddpackage(
-  NAME
-  argparse 
-  GITHUB_REPOSITORY
-  mhaseeb123/argparse
-  GIT_TAG
-  master 
-  )
+cpmaddpackage(NAME argparse GITHUB_REPOSITORY mhaseeb123/argparse GIT_TAG
+              master)
 
 add_library(hpcpp-core INTERFACE)
 
 # Link external libraries
-target_link_libraries(hpcpp-core INTERFACE
-  mdspan
-  fmt
-  mdspan_formatter
-  argparse
-)
+target_link_libraries(hpcpp-core INTERFACE mdspan fmt mdspan_formatter argparse)
 
 # stdpar and openmp
 set(STDPAR_TYPE "gpu")
@@ -210,11 +179,10 @@ if(NOT OMP)
 endif()
 
 # need to add appropriate flags for stdexec
-set(CMAKE_CXX_FLAGS
-    "${CMAKE_CXX_FLAGS} -stdpar=${STDPAR} -mp=${OMP}")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdpar=${STDPAR} -mp=${OMP}")
 
 # add -cudalib=cublas if -stdpar=gpu
-if (STDPAR STREQUAL "gpu")
+if(STDPAR STREQUAL "gpu")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DUSE_GPU")
 else()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -UUSE_GPU")
