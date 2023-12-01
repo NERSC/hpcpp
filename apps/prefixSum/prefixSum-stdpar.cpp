@@ -34,24 +34,21 @@
 // serial prefixSum function
 //
 template <typename T>
-[[nodiscard]] T * prefixSum_stdpar(const T *in, const int N)
-{
-    T * y = new T[N];
-    std::inclusive_scan(std::execution::par, in, in+N, y, std::plus<>());
+[[nodiscard]] T* prefixSum_stdpar(const T* in, const int N) {
+    T* y = new T[N];
+    std::inclusive_scan(std::execution::par, in, in + N, y, std::plus<>());
     return y;
 }
 
 //
 // simulation
 //
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     // parse params
     const prefixSum_params_t args = argparse::parse<prefixSum_params_t>(argc, argv);
 
     // see if help wanted
-    if (args.help)
-    {
+    if (args.help) {
         args.print();  // prints all variables
         return 0;
     }
@@ -62,14 +59,13 @@ int main(int argc, char* argv[])
     bool print_time = args.print_time;
     bool validate = args.validate;
 
-    if (!isPowOf2(N))
-    {
+    if (!isPowOf2(N)) {
         N = ceilPowOf2(N);
         fmt::print("INFO: N != pow(2). Setting => N = {}\n", N);
     }
 
     // input data
-    data_t * in = new data_t[N];
+    data_t* in = new data_t[N];
 
     fmt::print("Progress:0%");
 
@@ -79,7 +75,7 @@ int main(int argc, char* argv[])
     fmt::print("..50%");
 
     // output pointer
-    data_t * out = nullptr;
+    data_t* out = nullptr;
 
     // start the timer
     Timer timer;
@@ -93,8 +89,7 @@ int main(int argc, char* argv[])
     fmt::print("..100%\n");
 
     // print the input and its prefix sum (don't if N > 100)
-    if (print_arr && N < 100)
-    {
+    if (print_arr && N < 100) {
         fmt::print("int = {}\n", fmt::join(in, in + N, " "));
         fmt::print("out = {}\n", fmt::join(out, out + N, " "));
     }
@@ -104,8 +99,7 @@ int main(int argc, char* argv[])
         fmt::print("Elapsed Time: {:f} s\n", elapsed);
 
     // validate the prefixSum
-    if (validate)
-    {
+    if (validate) {
         bool verify = psum::validatePrefixSum(in, out, N);
 
         if (verify)

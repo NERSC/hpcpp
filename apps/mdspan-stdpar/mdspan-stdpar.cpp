@@ -28,58 +28,51 @@
 
 using data_type = int;
 // 2D view
-using extents_type =
-    std::extents<int, std::dynamic_extent, std::dynamic_extent>;
+using extents_type = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
 // 3D view (fix the first dimension to 2)
-using extents_type2 =
-    std::extents<int, 2, std::dynamic_extent, std::dynamic_extent>;
+using extents_type2 = std::extents<int, 2, std::dynamic_extent, std::dynamic_extent>;
 
 int main() {
-  constexpr int N = 1e9;
-  std::vector<data_type> v(N);
+    constexpr int N = 1e9;
+    std::vector<data_type> v(N);
 
-  // View data as contiguous memory representing 2 rows of 6 ints each
-  auto ms2 = std::mdspan<data_type, extents_type, std::layout_right>(v.data(),
-                                                                     N / 2, 2);
-  // View the same data as a 3D array 2 (fixed above) x 3 x 2
-  auto ms3 = std::mdspan<data_type, extents_type2, std::layout_right>(v.data(),
-                                                                      N / 4, 2);
+    // View data as contiguous memory representing 2 rows of 6 ints each
+    auto ms2 = std::mdspan<data_type, extents_type, std::layout_right>(v.data(), N / 2, 2);
+    // View the same data as a 3D array 2 (fixed above) x 3 x 2
+    auto ms3 = std::mdspan<data_type, extents_type2, std::layout_right>(v.data(), N / 4, 2);
 
-  // auto dim2 = [=](int i){int i1 = i/ms2.extent(1); int i2 = i%ms2.extent(1);
-  // return std::make_tuple(i1, i2);}; auto dim3 = [=](int i){int i1 =
-  // i/(ms3.extent(1)*ms3.extent(2)); int i2 = (i/ms3.extent(2))%ms3.extent(1);
-  // int i3 = i%ms3.extent(2); return std::make_tuple(i1, i2, i3);};
+    // auto dim2 = [=](int i){int i1 = i/ms2.extent(1); int i2 = i%ms2.extent(1);
+    // return std::make_tuple(i1, i2);}; auto dim3 = [=](int i){int i1 =
+    // i/(ms3.extent(1)*ms3.extent(2)); int i2 = (i/ms3.extent(2))%ms3.extent(1);
+    // int i3 = i%ms3.extent(2); return std::make_tuple(i1, i2, i3);};
 
-  std::for_each(std::execution::par_unseq, ms2.data_handle(),
-                ms2.data_handle() + ms2.size(), [=](int& i) {
-                  auto global_idx = std::distance(ms2.data_handle(), &i);
-                  dim2(global_idx, ms2);
-                  // auto [i1, i2] = dim2(global_idx);
-                  ms2(ii, ij) = global_idx;
-                });
+    std::for_each(std::execution::par_unseq, ms2.data_handle(), ms2.data_handle() + ms2.size(), [=](int& i) {
+        auto global_idx = std::distance(ms2.data_handle(), &i);
+        dim2(global_idx, ms2);
+        // auto [i1, i2] = dim2(global_idx);
+        ms2(ii, ij) = global_idx;
+    });
 
-  fmt::print("\n");
-
-  std::for_each(std::execution::par_unseq, ms2.data_handle(),
-                ms2.data_handle() + ms2.size(), [=](int& i) {
-                  auto global_idx = std::distance(ms2.data_handle(), &i);
-                  dim3(global_idx, ms3);
-                  // auto [i1, i2, i3] = dim3(global_idx);
-                  ms3(ii, ij, ik) = 1000 + global_idx;
-                });
-
-  // read subset of data using 3D view
-  for (size_t i = 0; i < ms3.extent(0); i++) {
-    for (size_t j = 0; j < 10; j++) {
-      for (size_t k = 0; k < ms3.extent(2); k++) {
-        assert(ms3(i, j, k) == 1000 + i * ms3.extent(1) * ms3.extent(2) +
-                                   j * ms3.extent(2) + k);
-        fmt::print("{} ", ms3(i, j, k));
-      }
-      fmt::print("\n");
-    }
     fmt::print("\n");
-  }
 
-  fmt::print("{}\n", ms3(0, 0, 1));
+    std::for_each(std::execution::par_unseq, ms2.data_handle(), ms2.data_handle() + ms2.size(), [=](int& i) {
+        auto global_idx = std::distance(ms2.data_handle(), &i);
+        dim3(global_idx, ms3);
+        // auto [i1, i2, i3] = dim3(global_idx);
+        ms3(ii, ij, ik) = 1000 + global_idx;
+    });
+
+    // read subset of data using 3D view
+    for (size_t i = 0; i < ms3.extent(0); i++) {
+        for (size_t j = 0; j < 10; j++) {
+            for (size_t k = 0; k < ms3.extent(2); k++) {
+                assert(ms3(i, j, k) == 1000 + i * ms3.extent(1) * ms3.extent(2) + j * ms3.extent(2) + k);
+                fmt::print("{} ", ms3(i, j, k));
+            }
+            fmt::print("\n");
+        }
+        fmt::print("\n");
+    }
+
+    fmt::print("{}\n", ms3(0, 0, 1));
 }

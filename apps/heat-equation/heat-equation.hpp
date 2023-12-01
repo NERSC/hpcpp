@@ -30,14 +30,14 @@
 
 #pragma once
 
-#include <stdexec/execution.hpp>
 #include <exec/static_thread_pool.hpp>
+#include <stdexec/execution.hpp>
 
 #if defined(USE_GPU)
-  #include <nvexec/stream_context.cuh>
-  #include <nvexec/multi_gpu_context.cuh>
+#include <nvexec/multi_gpu_context.cuh>
+#include <nvexec/stream_context.cuh>
 using namespace nvexec;
-#endif //USE_GPU
+#endif  //USE_GPU
 
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
@@ -62,56 +62,53 @@ constexpr int nghosts = ghost_cells * dims;
 using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
 
 // 3D view
-using view_3d = std::extents<int, std::dynamic_extent, std::dynamic_extent,
-                             std::dynamic_extent>;
+using view_3d = std::extents<int, std::dynamic_extent, std::dynamic_extent, std::dynamic_extent>;
 
 // macros to get x and y positions from indices
 #define pos(i, ghosts, dx) -0.5 + dx*(i - ghosts)
 
 // parameters
 struct heat_params_t : public argparse::Args {
-  int& ncells = kwarg("n,ncells", "number of cells on each side of the domain")
-                    .set_default(32);
-  int& nsteps = kwarg("s,nsteps", "total steps in simulation").set_default(100);
+    int& ncells = kwarg("n,ncells", "number of cells on each side of the domain").set_default(32);
+    int& nsteps = kwarg("s,nsteps", "total steps in simulation").set_default(100);
 
 #if defined(HEQ_OMP) || defined(HEQ_STDEXEC)
-  int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
+    int& nthreads = kwarg("nthreads", "number of threads").set_default(std::thread::hardware_concurrency());
 #endif  // HEQ_OMP || HEQ_STDEXEC
 
 #if defined(HEQ_STDEXEC)
-  std::string& sch = kwarg("sch", "stdexec scheduler: [options: cpu"
-  #if defined (USE_GPU)
-                          ", gpu, multigpu"
-  #endif //USE_GPU
-                          "]").set_default("cpu");
+    std::string& sch = kwarg("sch",
+                             "stdexec scheduler: [options: cpu"
+#if defined(USE_GPU)
+                             ", gpu, multigpu"
+#endif  //USE_GPU
+                             "]")
+                           .set_default("cpu");
 #endif  // HEQ_STDEXEC
 
-  Real_t& alpha = kwarg("a,alpha", "thermal diffusivity").set_default(0.5f);
-  Real_t& dt = kwarg("t,dt", "time step").set_default(5.0e-5f);
-  bool& help = flag("h,help", "print help");
-  bool& print_grid = flag("p,print", "print grids at step 0 and step n");
-  bool& print_time = flag("time", "print simulation time");
+    Real_t& alpha = kwarg("a,alpha", "thermal diffusivity").set_default(0.5f);
+    Real_t& dt = kwarg("t,dt", "time step").set_default(5.0e-5f);
+    bool& help = flag("h,help", "print help");
+    bool& print_grid = flag("p,print", "print grids at step 0 and step n");
+    bool& print_time = flag("time", "print simulation time");
 };
 
 // template printGrid
 template <typename T>
 void printGrid(T* grid, int len) {
-  auto view = std::mdspan<T, view_2d, std::layout_right>(grid, len, len);
-  fmt::print("Grid: \n");
-  fmt::println("{::.2f}", view);
+    auto view = std::mdspan<T, view_2d, std::layout_right>(grid, len, len);
+    fmt::print("Grid: \n");
+    fmt::println("{::.2f}", view);
 }
 
 // fill boundary cells
 template <typename T>
 void fill2Dboundaries(T* grid, int len, int ghost_cells = 1) {
-  std::for_each_n(std::execution::par_unseq, counting_iterator(ghost_cells),
-                  len - nghosts, [=](auto i) {
-                    grid[i] = grid[i + (ghost_cells * len)];
-                    grid[i + (len * (len - ghost_cells))] =
-                        grid[i + (len * (len - ghost_cells - 1))];
+    std::for_each_n(std::execution::par_unseq, counting_iterator(ghost_cells), len - nghosts, [=](auto i) {
+        grid[i] = grid[i + (ghost_cells * len)];
+        grid[i + (len * (len - ghost_cells))] = grid[i + (len * (len - ghost_cells - 1))];
 
-                    grid[i * len] = grid[(ghost_cells * len) + i];
-                    grid[(len - ghost_cells) + (len * i)] =
-                        grid[(len - ghost_cells - 1) + (len * i)];
-                  });
+        grid[i * len] = grid[(ghost_cells * len) + i];
+        grid[(len - ghost_cells) + (len * i)] = grid[(len - ghost_cells - 1) + (len * i)];
+    });
 }
