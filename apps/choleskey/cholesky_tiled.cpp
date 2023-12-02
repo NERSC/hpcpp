@@ -1,3 +1,19 @@
+/*
+1. Aim to implememt task-graph based Cholesky decomposition: tiled Cholesky decomposition with OpenMP tasks.
+    references:
+    >Buttari, Alfredo, et al. "A class of parallel tiled linear algebra algorithms for multicore architectures." Parallel Computing 35.1 (2009): 38-53.
+    >Dorris, Joseph, et al. "Task-based Cholesky decomposition on knights corner using OpenMP." High Performance Computing: ISC High Performance 2016 International Workshops, ExaComm, E-MuCoCoS, HPC-IODC, IXPUG, IWOPH, P^ 3MA, VHPC, WOPSSS, Frankfurt, Germany, June 19–23, 2016, Revised Selected Papers 31. Springer International Publishing, 2016.)
+
+2. Therefore, the first step is to implement tiled Cholesky decomposition algorithm.
+
+3. This file is to implement tiled Cholesky decomposition algorithm. 
+    reference the implementation from Intel open source project, hetero-streams which will no longer be maintained by Intel.
+    https://github.com/intel/hetero-streams/tree/master/ref_code/cholesky
+
+4. Additionally, include openblas library when build:
+   or $ export OPENBLAS_DIR=/openblas/path
+*/
+
 #include <bits/stdc++.h>
 #include <cblas.h>
 #include <lapacke.h>
@@ -9,97 +25,53 @@
 #include <iostream>
 #include <utility>
 #include <vector>
-#include "help.hpp"
+#include "tiled_cholesky_help.hpp"
 
 using data_type = double;
 
-//#include "time.hpp"
-#define SWITCH_CHAR '-'
-
-double* dpo_generate(size_t side_size) {
-    unsigned int seed = side_size;
-#ifdef _WIN32
-    srand(seed);
-#endif
-    // M is a (very) pseudo-random symmetric matrix
-    double* M_matrix = new double[side_size * side_size];
-    for (size_t row = 0; row < side_size; ++row) {
-        for (size_t col = row; col < side_size; ++col) {
-            M_matrix[col * side_size + row] = M_matrix[row * side_size + col] = (double)
-#ifdef _WIN32
-                                                                                    rand()
-#else
-                                                                                    rand_r(&seed)
-#endif
-                                                                                / RAND_MAX;
-        }
-    }
-    double* ret_matrix = (double*)malloc(side_size * side_size * sizeof(double));
-    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasTrans, side_size, side_size, side_size, 1.0, M_matrix, side_size,
-                M_matrix, side_size, 0.0, ret_matrix, side_size);
-
-    //adjust diagonals (diag = sum (row entries) + 1.0)
-    for (size_t row = 0; row < side_size; ++row) {
-        double diag = 1.0;  //start from 1.0
-        for (size_t col = 0; col < side_size; ++col) {
-            diag += ret_matrix[row * side_size + col];
-        }
-        //set the diag entry
-        ret_matrix[row * side_size + row] = diag;
-    }
-
-    delete[] M_matrix;
-    return ret_matrix;
-}
-
-void tiled_cholesky(double* mat_sp[], int tile_size, int num_tiles, CBLAS_ORDER blasLay, int lapackLay) {
+void tiled_cholesky(double* matrix_split[], const int tile_size, const int num_tiles, CBLAS_ORDER blasLay,
+                    const int lapackLay) {
     unsigned int m, n, k;
-    int info;
 
     for (k = 0; k < num_tiles; ++k) {
-
-        //POTRF - MKL call
-        info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', tile_size, mat_sp[k * num_tiles + k], tile_size);
-        std::cout << "info = " << info << std::endl;
+        //POTRF
+        int info = LAPACKE_dpotrf(LAPACK_ROW_MAJOR, 'L', tile_size, matrix_split[k * num_tiles + k], tile_size);
 
         for (m = k + 1; m < num_tiles; ++m) {
-
-            //DTRSM - MKL call
+            //DTRSM
             cblas_dtrsm(blasLay, CblasRight, CblasLower, CblasTrans, CblasNonUnit, tile_size, tile_size, 1.0,
-                        mat_sp[k * num_tiles + k], tile_size, mat_sp[m * num_tiles + k], tile_size);
+                        matrix_split[k * num_tiles + k], tile_size, matrix_split[m * num_tiles + k], tile_size);
         }
 
         for (n = k + 1; n < num_tiles; ++n) {
-            //DSYRK - MKL call
-            cblas_dsyrk(blasLay, CblasLower, CblasNoTrans, tile_size, tile_size, -1.0, mat_sp[n * num_tiles + k],
-                        tile_size, 1.0, mat_sp[n * num_tiles + n], tile_size);
+            //DSYRK
+            cblas_dsyrk(blasLay, CblasLower, CblasNoTrans, tile_size, tile_size, -1.0, matrix_split[n * num_tiles + k],
+                        tile_size, 1.0, matrix_split[n * num_tiles + n], tile_size);
 
             for (m = n + 1; m < num_tiles; ++m) {
-
-                //DGEMM - MKL call
+                //DGEMM
                 cblas_dgemm(blasLay, CblasNoTrans, CblasTrans, tile_size, tile_size, tile_size, -1.0,
-                            mat_sp[m * num_tiles + k], tile_size, mat_sp[n * num_tiles + k], tile_size, 1.0,
-                            mat_sp[m * num_tiles + n], tile_size);
+                            matrix_split[m * num_tiles + k], tile_size, matrix_split[n * num_tiles + k], tile_size, 1.0,
+                            matrix_split[m * num_tiles + n], tile_size);
             }
         }
     }
 }
 
 int main(int argc, char** argv) {
-    int info;
 
+    // TODO : introduce args
     int mat_size_m, num_tiles, tile_size, tot_tiles;
     mat_size_m = 4;  // must be an input
     num_tiles = 2;   // matrix size MUST be divisible
-
-    bool layRow = true;
     int verify = 1;
+    bool layRow = true;
 
     std::cout << "mat_size = " << mat_size_m << ", num_tiles = " << num_tiles << std::endl << std::endl;
 
     // Check that mat_size is divisible by num_tiles
     if (mat_size_m % num_tiles != 0) {
-        std::cout << "matrix size MUST be divisible by num_tiles.. aborting" << std::endl;
+        std::cout << "matrix size must be divisible by num_tiles.. aborting" << std::endl;
         throw std::invalid_argument("Matrix size is not divisible by num_tiles");
     }
 
@@ -111,27 +83,26 @@ int main(int argc, char** argv) {
     tile_size = mat_size_m / num_tiles;
     tot_tiles = num_tiles * num_tiles;
 
-    //allocating memory for input matrix (full matrix)
-    double* A = (double*)malloc(mat_size_m * mat_size_m * sizeof(double));
+    double* A = new double[mat_size_m * mat_size_m];
 
-    //allocating memory for tiled_cholesky for the full matrix
-    double* A_lower = (double*)malloc(mat_size_m * mat_size_m * sizeof(double));
+    // Allocate memory for tiled_cholesky for the full matrix
+    double* A_lower = new double[mat_size_m * mat_size_m];
 
-    //allocating memory for MKL cholesky for the full matrix
-    double* A_MKL = (double*)malloc(mat_size_m * mat_size_m * sizeof(double));
+    // Allocate memory for MKL cholesky for the full matrix
+    double* A_MKL = new double[mat_size_m * mat_size_m];
 
-    //memory allocation for tiled matrix
+    // Memory allocation for tiled matrix
     double** Asplit = new double*[tot_tiles];
 
     for (int i = 0; i < tot_tiles; ++i) {
-        //Buffer per tile
-        Asplit[i] = (double*)malloc(tile_size * tile_size * sizeof(double));
+        // Buffer per tile
+        Asplit[i] = new double[tile_size * tile_size];
     }
 
     //Generate a symmetric positve-definite matrix
-    A = dpo_generate(mat_size_m);
+    A = generate_positiveDefinitionMatrix(mat_size_m);
 
-    printMatrix(A, mat_size_m);
+    //printMatrix(A, mat_size_m);
 
     CBLAS_ORDER blasLay;
     int lapackLay;
@@ -144,48 +115,39 @@ int main(int argc, char** argv) {
         lapackLay = LAPACK_COL_MAJOR;
     }
 
-    //copying matrices into separate variables for tiled cholesky (A_my)
+    //copying matrices into separate variables for tiled cholesky (A_lower)
     //and MKL cholesky (A_MKL)
     //The output overwrites the matrices
-    std::cout << "A_my = " << std::endl;
-    copy_mat(A, A_lower, mat_size_m);
-    copy_mat(A, A_MKL, mat_size_m);
-    printMatrix(A_lower, mat_size_m);
+    copy_matrix(A, A_lower, mat_size_m);
+    copy_matrix(A, A_MKL, mat_size_m);
 
-    //This splits the input matrix into tiles (or blocks)
-    split_into_blocks(A_lower, Asplit, num_tiles, tile_size, mat_size_m, layRow);
-    std::cout << "split matrix: " << std::endl;
-    print_mat_split(Asplit, num_tiles, tile_size);
+    //splits the input matrix into tiles
+    split_into_tiles(A_lower, Asplit, num_tiles, tile_size, mat_size_m, layRow);
 
-    //Calling the tiled Cholesky function. This does the factorization of the full matrix using a tiled implementation.
+    //run the tiled Cholesky function
     tiled_cholesky(Asplit, tile_size, num_tiles, blasLay, lapackLay);
 
-    //assembling of tiles back into full matrix
-    assemble(Asplit, A_lower, num_tiles, tile_size, mat_size_m, layRow);
-    std::cout << "Cholosky decomposition: lower matrix_A_lower \n";
-    printMatrix(A_lower, mat_size_m);
-    //tbegin = dtimeGet();
+    //assembling seperated tiles back into full matrix
+    assemble_tiles(Asplit, A_lower, num_tiles, tile_size, mat_size_m, layRow);
 
-    //calling mkl cholesky for verification and timing comparison
-    info = LAPACKE_dpotrf(lapackLay, 'L', mat_size_m, A_MKL, mat_size_m);
-    std::cout << "A_MKL \n";
-    printMatrix(A_MKL, mat_size_m);
+    //calling LAPACKE_dpotrf cholesky for verification and timing comparison
+    int info = LAPACKE_dpotrf(lapackLay, 'L', mat_size_m, A_MKL, mat_size_m);
 
     if (verify == 1) {
         bool res = verify_results(A_lower, A_MKL, mat_size_m * mat_size_m);
         if (res == true) {
-            printf("Tiled Cholesky successful\n");
+            printf("Tiled Cholesky decomposition successful\n");
         } else {
-            printf("Tiled Chloesky failed\n");
+            printf("Tiled Chloesky decomposition failed\n");
         }
     }
 
-    //free
-    free(A);
-    free(A_lower);
-    free(A_MKL);
+    //memory free
+    delete[] A;
+    delete[] A_lower;
+    delete[] A_MKL;
     for (int i = 0; i < tot_tiles; ++i) {
-        free(Asplit[i]);
+        delete[] Asplit[i];
     }
 
     return 0;
