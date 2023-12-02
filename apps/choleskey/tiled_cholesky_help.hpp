@@ -6,9 +6,8 @@
 #include <stdlib.h>
 #include <cstdlib>
 #include <fstream>
-#include <iostream>
 #include <sstream>
-#include <vector>
+#include "commons.hpp"
 
 double* generate_positiveDefinitionMatrix(const size_t matrix_size) {
     double* A_matrix = new double[matrix_size * matrix_size];
@@ -102,7 +101,7 @@ bool verify_results(const double* lower_res, const double* dporft_res, const int
         }
         diff = fabs(diff);
         if (diff > 1.0e-5) {
-            printf("\nError detected at i = %d: ref %g actual %g\n", i, dporft_res[i], lower_res[i]);
+            fmt::print("\nError detected at i = {}: ref {} actual {}\n", i, dporft_res[i], lower_res[i]);
             res = false;
             break;
         }
@@ -121,13 +120,13 @@ void printMatrix(const double* matrix, size_t matrix_size) {
 
 void print_mat_split(double* matrix_split[], int num_tiles, int tile_size) {
     for (int itile = 0; itile < num_tiles * num_tiles; ++itile) {
-        printf("Block %d:\n", itile);
+        fmt::print("Block {}:\n", itile);
         for (int i = 0; i < tile_size; ++i) {
             for (int j = 0; j < tile_size; ++j) {
-                printf("%f ", matrix_split[itile][i * tile_size + j]);
+                fmt::print("{} ", matrix_split[itile][i * tile_size + j]);
             }
-            printf("\n");
+            fmt::print("\n");
         }
-        printf("\n");
+        fmt::print("\n");
     }
 }

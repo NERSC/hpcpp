@@ -24,7 +24,7 @@ target_include_directories(
 
 #tiled cholesky
 add_executable(cholesky_tiled cholesky_tiled.cpp)
-target_link_libraries(cholesky_tiled PRIVATE blas lapack -fortranlibs gfortran)
+target_link_libraries(cholesky_tiled PRIVATE hpcpp-core blas lapack -fortranlibs gfortran)
 target_include_directories(
   cholesky_tiled
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include

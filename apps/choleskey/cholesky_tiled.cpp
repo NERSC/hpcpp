@@ -21,10 +21,6 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <experimental/linalg>
-#include <iostream>
-#include <utility>
-#include <vector>
 #include "tiled_cholesky_help.hpp"
 
 using data_type = double;
@@ -61,35 +57,35 @@ void tiled_cholesky(double* matrix_split[], const int tile_size, const int num_t
 int main(int argc, char** argv) {
 
     // TODO : introduce args
-    int mat_size_m, num_tiles, tile_size, tot_tiles;
-    mat_size_m = 4;  // must be an input
-    num_tiles = 2;   // matrix size MUST be divisible
-    int verify = 1;
+    int matrix_size, num_tiles, tile_size, tot_tiles;
+    matrix_size = 4;  // must be an input
+    num_tiles = 2;    // matrix size MUST be divisible
+    int verifycorrectness = 1;
     bool layRow = true;
 
-    std::cout << "mat_size = " << mat_size_m << ", num_tiles = " << num_tiles << std::endl << std::endl;
+    fmt::print("matrix_size = {}, num_tiles = {}\n\n", matrix_size, num_tiles);
 
-    // Check that mat_size is divisible by num_tiles
-    if (mat_size_m % num_tiles != 0) {
-        std::cout << "matrix size must be divisible by num_tiles.. aborting" << std::endl;
+    // Check mat_size is divisible by num_tiles
+    if (matrix_size % num_tiles != 0) {
+        fmt::print("matrix size must be divisible by num_tiles.. aborting\n");
         throw std::invalid_argument("Matrix size is not divisible by num_tiles");
     }
 
-    if (mat_size_m == 0) {
-        printf("mat_size_m is not defined\n");
-        exit(0);
+    if (matrix_size == 0) {
+        fmt::print("matrix_size is not defined\n");
+        std::exit(0);
     }
 
-    tile_size = mat_size_m / num_tiles;
+    tile_size = matrix_size / num_tiles;
     tot_tiles = num_tiles * num_tiles;
 
-    double* A = new double[mat_size_m * mat_size_m];
+    double* A = new double[matrix_size * matrix_size];
 
     // Allocate memory for tiled_cholesky for the full matrix
-    double* A_lower = new double[mat_size_m * mat_size_m];
+    double* A_lower = new double[matrix_size * matrix_size];
 
     // Allocate memory for MKL cholesky for the full matrix
-    double* A_MKL = new double[mat_size_m * mat_size_m];
+    double* A_MKL = new double[matrix_size * matrix_size];
 
     // Memory allocation for tiled matrix
     double** Asplit = new double*[tot_tiles];
@@ -100,7 +96,7 @@ int main(int argc, char** argv) {
     }
 
     //Generate a symmetric positve-definite matrix
-    A = generate_positiveDefinitionMatrix(mat_size_m);
+    A = generate_positiveDefinitionMatrix(matrix_size);
 
     //printMatrix(A, mat_size_m);
 
@@ -118,27 +114,27 @@ int main(int argc, char** argv) {
     //copying matrices into separate variables for tiled cholesky (A_lower)
     //and MKL cholesky (A_MKL)
     //The output overwrites the matrices
-    copy_matrix(A, A_lower, mat_size_m);
-    copy_matrix(A, A_MKL, mat_size_m);
+    copy_matrix(A, A_lower, matrix_size);
+    copy_matrix(A, A_MKL, matrix_size);
 
     //splits the input matrix into tiles
-    split_into_tiles(A_lower, Asplit, num_tiles, tile_size, mat_size_m, layRow);
+    split_into_tiles(A_lower, Asplit, num_tiles, tile_size, matrix_size, layRow);
 
     //run the tiled Cholesky function
     tiled_cholesky(Asplit, tile_size, num_tiles, blasLay, lapackLay);
 
     //assembling seperated tiles back into full matrix
-    assemble_tiles(Asplit, A_lower, num_tiles, tile_size, mat_size_m, layRow);
+    assemble_tiles(Asplit, A_lower, num_tiles, tile_size, matrix_size, layRow);
 
     //calling LAPACKE_dpotrf cholesky for verification and timing comparison
-    int info = LAPACKE_dpotrf(lapackLay, 'L', mat_size_m, A_MKL, mat_size_m);
+    int info = LAPACKE_dpotrf(lapackLay, 'L', matrix_size, A_MKL, matrix_size);
 
-    if (verify == 1) {
-        bool res = verify_results(A_lower, A_MKL, mat_size_m * mat_size_m);
-        if (res == true) {
-            printf("Tiled Cholesky decomposition successful\n");
+    if (verifycorrectness == 1) {
+        bool res = verify_results(A_lower, A_MKL, matrix_size * matrix_size);
+        if (res) {
+            fmt::print("Tiled Cholesky decomposition successful\n");
         } else {
-            printf("Tiled Chloesky decomposition failed\n");
+            fmt::print("Tiled Cholesky decomposition failed\n");
         }
     }
 
