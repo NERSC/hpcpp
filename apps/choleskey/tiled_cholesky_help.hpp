@@ -84,13 +84,6 @@ void assemble_tiles(double* matrix_split[], double* matrix, const int num_tiles,
     }
 }
 
-void copy_matrix(const double* matrix, double* destination, const int size) {
-    for (int i = 0; i < size; ++i)
-        for (int j = 0; j < size; ++j) {
-            destination[i * size + j] = matrix[i * size + j];
-        }
-}
-
 bool verify_results(const double* lower_res, const double* dporft_res, const int totalsize) {
     bool res = true;
     double diff;

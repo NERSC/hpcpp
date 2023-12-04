@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include "tiled_cholesky_help.hpp"
 
 using data_type = double;
@@ -58,8 +59,8 @@ int main(int argc, char** argv) {
 
     // TODO : introduce args
     int matrix_size, num_tiles, tile_size, tot_tiles;
-    matrix_size = 4;  // must be an input
-    num_tiles = 2;    // matrix size MUST be divisible
+    matrix_size = 40;  // must be an input
+    num_tiles = 2;     // matrix size MUST be divisible
     int verifycorrectness = 1;
     bool layRow = true;
 
@@ -72,7 +73,7 @@ int main(int argc, char** argv) {
     }
 
     if (matrix_size == 0) {
-        fmt::print("matrix_size is not defined\n");
+        fmt::print(" 0 illegal input matrix_size \n");
         std::exit(0);
     }
 
@@ -111,11 +112,9 @@ int main(int argc, char** argv) {
         lapackLay = LAPACK_COL_MAJOR;
     }
 
-    //copying matrices into separate variables for tiled cholesky (A_lower)
-    //and MKL cholesky (A_MKL)
-    //The output overwrites the matrices
-    copy_matrix(A, A_lower, matrix_size);
-    copy_matrix(A, A_MKL, matrix_size);
+    //copying matrices into separate variables for tiled cholesky (A_lower) and MKL cholesky (A_MKL)
+    std::memcpy(A_lower, A, matrix_size * matrix_size * sizeof(double));
+    std::memcpy(A_MKL, A, matrix_size * matrix_size * sizeof(double));
 
     //splits the input matrix into tiles
     split_into_tiles(A_lower, Asplit, num_tiles, tile_size, matrix_size, layRow);
