@@ -46,15 +46,16 @@ struct args_params_t : public argparse::Args {
 };
 
 // help functions for tiled_cholesky
-double* generate_positiveDefinitionMatrix(const size_t matrix_size) {
-    double* A_matrix = new double[matrix_size * matrix_size];
-    double* pd_matrix = (double*)malloc(matrix_size * matrix_size * sizeof(double));
+data_type* generate_positiveDefinitionMatrix(const size_t matrix_size) {
+    data_type* A_matrix = new data_type[matrix_size * matrix_size];
+    data_type* pd_matrix = (data_type*)malloc(matrix_size * matrix_size * sizeof(data_type));
     unsigned int seeds = matrix_size;
 
     // generate a random symmetric matrix
     for (size_t row = 0; row < matrix_size; ++row) {
         for (size_t col = row; col < matrix_size; ++col) {
-            A_matrix[col * matrix_size + row] = A_matrix[row * matrix_size + col] = (double)rand_r(&seeds) / RAND_MAX;
+            A_matrix[col * matrix_size + row] = A_matrix[row * matrix_size + col] =
+                (data_type)rand_r(&seeds) / RAND_MAX;
         }
     }
     // compute the product of matrix A_matrix and its transpose, and storing the result in pd_matrix.
@@ -123,7 +124,7 @@ void assemble_tiles(data_type* matrix_split[], data_type* matrix, const int num_
 
 bool verify_results(const data_type* lower_res, const data_type* dporft_res, const int totalsize) {
     bool res = true;
-    double diff;
+    data_type diff;
     for (int i = 0; i < totalsize; ++i) {
         diff = dporft_res[i] - lower_res[i];
         if (fabs(dporft_res[i]) > 1e-5) {
