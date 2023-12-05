@@ -33,18 +33,17 @@
 //
 // fft algorithm
 //
-[[nodiscard]] std::vector<data_t> fft(const data_t *x, const int N, bool debug = false)
-{
+[[nodiscard]] std::vector<data_t> fft(const data_t* x, const int N, bool debug = false) {
     std::vector<data_t> x_rev(N);
 
     // create mdspans
-    auto x_r  = std::mdspan<data_t, view_1d, std::layout_right>(x_rev.data(), N);
+    auto x_r = std::mdspan<data_t, view_1d, std::layout_right>(x_rev.data(), N);
 
     // compute shift factor
     int shift = 32 - ilog2(N);
 
     // twiddle bits for fft
-    std::for_each_n(std::execution::par_unseq, counting_iterator(0), N, [=](auto k){
+    std::for_each_n(std::execution::par_unseq, counting_iterator(0), N, [=](auto k) {
         auto new_idx = reverse_bits32(k) >> shift;
         x_r(k) = x[new_idx];
     });
@@ -59,36 +58,34 @@
     fmt::print("FFT progress: ");
 
     // iterate until niters - lN*=2 after each iteration
-    for (int it = 0; it < niters; it++, lN*=2)
-    {
+    for (int it = 0; it < niters; it++, lN *= 2) {
         // print progress
-        fmt::print("{:.1f}%..", (100.0 * it)/niters);
+        fmt::print("{:.1f}%..", (100.0 * it) / niters);
 
         // debugging timer
         static Timer dtimer;
 
         // number of partitions
-        int nparts = N/lN;
-        int tpp = lN/2;
+        int nparts = N / lN;
+        int tpp = lN / 2;
 
         // display info only if debugging
-        if (debug)
-        {
+        if (debug) {
             dtimer.start();
             fmt::print("lN = {}, npartitions = {}, partition size = {}\n", lN, nparts, tpp);
         }
 
         // parallel compute lN-pt FFT
-        std::for_each_n(std::execution::par_unseq, counting_iterator(0), N/2, [=](auto k){
+        std::for_each_n(std::execution::par_unseq, counting_iterator(0), N / 2, [=](auto k) {
             // compute indices
-            int  e   = (k/tpp)*lN + (k % tpp);
-            auto o   = e + tpp;
-            auto i   = (k % tpp);
+            int e = (k / tpp) * lN + (k % tpp);
+            auto o = e + tpp;
+            auto i = (k % tpp);
 
             // compute 2-pt DFT
             auto tmp = x_r(e) + x_r(o) * WNk(N, i * nparts);
-            x_r(o)     = x_r(e) - x_r(o) * WNk(N, i * nparts);
-            x_r(e)     = tmp;
+            x_r(o) = x_r(e) - x_r(o) * WNk(N, i * nparts);
+            x_r(e) = tmp;
         });
 
         // print only if debugging
@@ -106,14 +103,12 @@
 //
 // simulation
 //
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     // parse params
     const fft_params_t args = argparse::parse<fft_params_t>(argc, argv);
 
     // see if help wanted
-    if (args.help)
-    {
+    if (args.help) {
         args.print();  // prints all variables
         return 0;
     }
@@ -129,16 +124,14 @@ int main(int argc, char* argv[])
     // x[n] signal
     sig_t x_n(N, sig_type);
 
-    if (!isPowOf2(N))
-    {
+    if (!isPowOf2(N)) {
         N = ceilPowOf2(N);
         fmt::print("INFO: N is not a power of 2. Padding zeros => N = {}\n", N);
 
         x_n.resize(N);
     }
 
-    if (print_sig)
-    {
+    if (print_sig) {
         fmt::print("\nx[n] = ");
         x_n.printSignal();
     }
@@ -153,8 +146,7 @@ int main(int argc, char* argv[])
     auto elapsed = timer.stop();
 
     // print the fft(x)
-    if (print_sig)
-    {
+    if (print_sig) {
         fmt::print("X(k) = ");
         y_n.printSignal();
     }
@@ -165,12 +157,10 @@ int main(int argc, char* argv[])
     }
 
     // validate the recursively computed fft
-    if (validate)
-    {
-        if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler())){
+    if (validate) {
+        if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler())) {
             fmt::print("SUCCESS: y[n] == fft(x[n])\n");
-        }
-        else {
+        } else {
             fmt::print("FAILED: y[n] != fft(x[n])\n");
         }
     }

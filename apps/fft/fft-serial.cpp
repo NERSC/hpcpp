@@ -33,16 +33,14 @@
 //
 // serial fft function
 //
-[[nodiscard]] std::vector<data_t> fft_serial(const data_t *x, const int N, bool debug = false)
-{
+[[nodiscard]] std::vector<data_t> fft_serial(const data_t* x, const int N, bool debug = false) {
     std::vector<data_t> x_r(N);
 
     // bit shift
     int shift = 32 - ilog2(N);
 
     // twiddle data in x[n]
-    for (int k = 0; k < N; k++)
-    {
+    for (int k = 0; k < N; k++) {
         auto new_idx = reverse_bits32(k) >> shift;
         x_r[k] = x[new_idx];
     }
@@ -54,29 +52,27 @@
 
     fmt::print("FFT progress: ");
 
-    for (int k = 0; k < niters; k++, lN*=2)
-    {
-        fmt::print("{:f}%..", (100.0 * k)/niters); 
+    for (int k = 0; k < niters; k++, lN *= 2) {
+        fmt::print("{:f}%..", (100.0 * k) / niters);
 
         static Timer dtimer;
 
         // number of partitions
-        int nparts = N/lN;
-        int tpp = lN/2;
+        int nparts = N / lN;
+        int tpp = lN / 2;
 
         if (debug)
             dtimer.start();
 
         // merge
-        for (int k = 0; k < N/2; k++)
-        {
+        for (int k = 0; k < N / 2; k++) {
             // compute indices
-            int  e   = (k/tpp)*lN + (k % tpp);
-            auto o   = e + tpp;
-            auto i   = (k % tpp);
+            int e = (k / tpp) * lN + (k % tpp);
+            auto o = e + tpp;
+            auto i = (k % tpp);
             auto tmp = x_r[e] + x_r[o] * WNk(N, i * nparts);
-            x_r[o]     = x_r[e] - x_r[o] * WNk(N, i * nparts);
-            x_r[e]     = tmp;
+            x_r[o] = x_r[e] - x_r[o] * WNk(N, i * nparts);
+            x_r[e] = tmp;
         }
 
         if (debug) {
@@ -91,14 +87,12 @@
 //
 // simulation
 //
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     // parse params
     const fft_params_t args = argparse::parse<fft_params_t>(argc, argv);
 
     // see if help wanted
-    if (args.help)
-    {
+    if (args.help) {
         args.print();  // prints all variables
         return 0;
     }
@@ -114,16 +108,14 @@ int main(int argc, char* argv[])
     // x[n] signal
     sig_t x_n(N, sig_type);
 
-    if (!isPowOf2(N))
-    {
+    if (!isPowOf2(N)) {
         N = ceilPowOf2(N);
         fmt::print("INFO: N is not a power of 2. Padding zeros => N = {}\n", N);
 
         x_n.resize(N);
     }
 
-    if (print_sig)
-    {
+    if (print_sig) {
         fmt::print("x[n] = ");
         x_n.printSignal();
     }
@@ -142,8 +134,7 @@ int main(int argc, char* argv[])
     auto elapsed = timer.stop();
 
     // print the fft(x)
-    if (print_sig)
-    {
+    if (print_sig) {
         fmt::print("X(k) = ");
         y_n.printSignal();
     }
@@ -154,12 +145,10 @@ int main(int argc, char* argv[])
     }
 
     // validate the recursively computed fft
-    if (validate)
-    {
+    if (validate) {
         if (x_n.isFFT(y_n, exec::static_thread_pool(std::thread::hardware_concurrency()).get_scheduler())) {
             fmt::print("SUCCESS: y[n] == fft(x[n])\n");
-        }
-        else {
+        } else {
             fmt::print("FAILED: y[n] != fft(x[n])\n");
         }
     }
