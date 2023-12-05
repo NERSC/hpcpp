@@ -15,7 +15,7 @@ Additionally, include openblas library when build:
 #include <cstring>
 #include "matrixutil.hpp"
 
-void tiled_cholesky(double* matrix_split[], const int tile_size, const int num_tiles, const CBLAS_ORDER blasLay,
+void tiled_cholesky(data_type* matrix_split[], const int tile_size, const int num_tiles, const CBLAS_ORDER blasLay,
                     const int lapackLay) {
     unsigned int m = 0, n = 0, k = 0;
 
@@ -80,20 +80,20 @@ int main(int argc, char** argv) {
     tile_size = matrix_size / num_tiles;
     tot_tiles = num_tiles * num_tiles;
 
-    double* A = new double[matrix_size * matrix_size];
+    data_type* A = new data_type[matrix_size * matrix_size];
 
     // Allocate memory for tiled_cholesky for the full matrix
-    double* A_lower = new double[matrix_size * matrix_size];
+    data_type* A_lower = new data_type[matrix_size * matrix_size];
 
     // Allocate memory for MKL cholesky for the full matrix
-    double* A_MKL = new double[matrix_size * matrix_size];
+    data_type* A_MKL = new data_type[matrix_size * matrix_size];
 
     // Memory allocation for tiled matrix
-    double** Asplit = new double*[tot_tiles];
+    data_type** Asplit = new data_type*[tot_tiles];
 
     for (int i = 0; i < tot_tiles; ++i) {
         // Buffer per tile
-        Asplit[i] = new double[tile_size * tile_size];
+        Asplit[i] = new data_type[tile_size * tile_size];
     }
 
     //Generate a symmetric positve-definite matrix
@@ -113,8 +113,8 @@ int main(int argc, char** argv) {
     }
 
     //copying matrices into separate variables for tiled cholesky (A_lower) and MKL cholesky (A_MKL)
-    std::memcpy(A_lower, A, matrix_size * matrix_size * sizeof(double));
-    std::memcpy(A_MKL, A, matrix_size * matrix_size * sizeof(double));
+    std::memcpy(A_lower, A, matrix_size * matrix_size * sizeof(data_type));
+    std::memcpy(A_MKL, A, matrix_size * matrix_size * sizeof(data_type));
 
     //splits the input matrix into tiles
     split_into_tiles(A_lower, Asplit, num_tiles, tile_size, matrix_size, layRow);

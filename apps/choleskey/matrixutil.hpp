@@ -8,6 +8,8 @@
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
 
+using data_type = double;
+
 // generate positive definition matrix
 template <typename T>
 using Matrix = std::vector<std::vector<T>>;
@@ -49,15 +51,16 @@ struct args_params_t : public argparse::Args {
 };
 
 // help functions for tiled_cholesky
-double* generate_positiveDefinitionMatrix(const size_t matrix_size) {
-    double* A_matrix = new double[matrix_size * matrix_size];
-    double* pd_matrix = (double*)malloc(matrix_size * matrix_size * sizeof(double));
+data_type* generate_positiveDefinitionMatrix(const size_t matrix_size) {
+    data_type* A_matrix = new data_type[matrix_size * matrix_size];
+    data_type* pd_matrix = (data_type*)malloc(matrix_size * matrix_size * sizeof(data_type));
     unsigned int seeds = matrix_size;
 
     // generate a random symmetric matrix
     for (size_t row = 0; row < matrix_size; ++row) {
         for (size_t col = row; col < matrix_size; ++col) {
-            A_matrix[col * matrix_size + row] = A_matrix[row * matrix_size + col] = (double)rand_r(&seeds) / RAND_MAX;
+            A_matrix[col * matrix_size + row] = A_matrix[row * matrix_size + col] =
+                (data_type)rand_r(&seeds) / RAND_MAX;
         }
     }
     // compute the product of matrix A_matrix and its transpose, and storing the result in pd_matrix.
@@ -78,7 +81,7 @@ double* generate_positiveDefinitionMatrix(const size_t matrix_size) {
     return pd_matrix;
 }
 
-void split_into_tiles(const double* matrix, double* matrix_split[], const int num_tiles, const int tile_size,
+void split_into_tiles(const data_type* matrix, data_type* matrix_split[], const int num_tiles, const int tile_size,
                       const int size, bool layRow) {
 
     int total_num_tiles = num_tiles * num_tiles;
@@ -102,8 +105,8 @@ void split_into_tiles(const double* matrix, double* matrix_split[], const int nu
     }
 }
 
-double* assemble_tiles(double* matrix_split[], double* matrix, const int num_tiles, const int tile_size, const int size,
-                       bool layRow) {
+void* assemble_tiles(data_type* matrix_split[], data_type* matrix, const int num_tiles, const int tile_size,
+                     const int size, bool layRow) {
     int i_tile, j_tile, tile, i_local, j_local;
     //#pragma omp parallel for private(j, i_local, j_local, i_tile, j_tile, tile) \
     schedule(auto)
@@ -122,12 +125,11 @@ double* assemble_tiles(double* matrix_split[], double* matrix, const int num_til
             matrix[i * size + j] = matrix_split[tile][i_local * tile_size + j_local];
         }
     }
-    return matrix;
 }
 
-bool verify_results(const double* lower_res, const double* dporft_res, const int totalsize) {
+bool verify_results(const data_type* lower_res, const data_type* dporft_res, const int totalsize) {
     bool res = true;
-    double diff;
+    data_type diff;
     for (int i = 0; i < totalsize; ++i) {
         diff = dporft_res[i] - lower_res[i];
         if (fabs(dporft_res[i]) > 1e-5) {
@@ -143,7 +145,7 @@ bool verify_results(const double* lower_res, const double* dporft_res, const int
     return res;
 }
 
-void printLowerResults(const double* matrix, size_t matrix_size) {
+void printLowerResults(const data_type* matrix, size_t matrix_size) {
     for (size_t row = 0; row < matrix_size; ++row) {
         for (size_t col = 0; col <= row; ++col) {
             fmt::print("{}\t", matrix[row * matrix_size + col]);
@@ -152,7 +154,7 @@ void printLowerResults(const double* matrix, size_t matrix_size) {
     }
 }
 
-void print_mat_split(double* matrix_split[], int num_tiles, int tile_size) {
+void print_mat_split(data_type* matrix_split[], int num_tiles, int tile_size) {
     for (int itile = 0; itile < num_tiles * num_tiles; ++itile) {
         fmt::print("Block {}:\n", itile);
         for (int i = 0; i < tile_size; ++i) {
