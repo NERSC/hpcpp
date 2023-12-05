@@ -29,3 +29,11 @@ target_include_directories(
   cholesky_tiled
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR} ${OPENBLAS_DIR}/include/openblas ${OPENBLAS_DIR}/lib64/cmake/OpenBLAS)
+
+#tiled cholesky omp
+add_executable(cholesky_tiled_omp matrixutil.hpp cholesky_tiled_omp.cpp )
+target_link_libraries(cholesky_tiled_omp PRIVATE hpcpp-core blas lapack -fortranlibs gfortran)
+target_include_directories(
+  cholesky_tiled_omp
+  PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
+          ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR} ${OPENBLAS_DIR}/include/openblas ${OPENBLAS_DIR}/lib64/cmake/OpenBLAS)
