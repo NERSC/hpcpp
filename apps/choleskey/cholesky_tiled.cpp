@@ -18,17 +18,14 @@
 #include <cblas.h>
 #include <lapacke.h>
 #include <omp.h>
-#include <algorithm>
 #include <cmath>
-#include <cstdlib>
 #include <cstring>
-#include "tiled_cholesky_help.hpp"
+#include "argparse/argparse.hpp"
+#include "matrixutil.hpp"
 
-using data_type = double;
-
-void tiled_cholesky(double* matrix_split[], const int tile_size, const int num_tiles, CBLAS_ORDER blasLay,
+void tiled_cholesky(data_type* matrix_split[], const int tile_size, const int num_tiles, CBLAS_ORDER blasLay,
                     const int lapackLay) {
-    unsigned int m, n, k;
+    unsigned int m = 0, n = 0, k = 0;
 
     for (k = 0; k < num_tiles; ++k) {
         //POTRF
@@ -57,11 +54,14 @@ void tiled_cholesky(double* matrix_split[], const int tile_size, const int num_t
 
 int main(int argc, char** argv) {
 
-    // TODO : introduce args
-    int matrix_size, num_tiles, tile_size, tot_tiles;
-    matrix_size = 40;  // must be an input
-    num_tiles = 2;     // matrix size MUST be divisible
-    int verifycorrectness = 1;
+    // parse params
+    args_params_t args = argparse::parse<args_params_t>(argc, argv);
+    int tile_size = 0, tot_tiles = 0;
+
+    std::uint64_t matrix_size = args.mat_size;  // Number of matrix dimension.
+    std::uint64_t num_tiles = args.num_tiles;   // matrix size MUST be divisible
+    int verifycorrectness = args.verifycorrectness;
+
     bool layRow = true;
 
     fmt::print("matrix_size = {}, num_tiles = {}\n\n", matrix_size, num_tiles);
@@ -80,26 +80,24 @@ int main(int argc, char** argv) {
     tile_size = matrix_size / num_tiles;
     tot_tiles = num_tiles * num_tiles;
 
-    double* A = new double[matrix_size * matrix_size];
+    data_type* A = new data_type[matrix_size * matrix_size];
 
     // Allocate memory for tiled_cholesky for the full matrix
-    double* A_lower = new double[matrix_size * matrix_size];
+    data_type* A_lower = new data_type[matrix_size * matrix_size];
 
     // Allocate memory for MKL cholesky for the full matrix
-    double* A_MKL = new double[matrix_size * matrix_size];
+    data_type* A_MKL = new data_type[matrix_size * matrix_size];
 
     // Memory allocation for tiled matrix
-    double** Asplit = new double*[tot_tiles];
+    data_type** Asplit = new data_type*[tot_tiles];
 
     for (int i = 0; i < tot_tiles; ++i) {
         // Buffer per tile
-        Asplit[i] = new double[tile_size * tile_size];
+        Asplit[i] = new data_type[tile_size * tile_size];
     }
 
     //Generate a symmetric positve-definite matrix
     A = generate_positiveDefinitionMatrix(matrix_size);
-
-    //printMatrix(A, mat_size_m);
 
     CBLAS_ORDER blasLay;
     int lapackLay;
@@ -113,17 +111,24 @@ int main(int argc, char** argv) {
     }
 
     //copying matrices into separate variables for tiled cholesky (A_lower) and MKL cholesky (A_MKL)
-    std::memcpy(A_lower, A, matrix_size * matrix_size * sizeof(double));
-    std::memcpy(A_MKL, A, matrix_size * matrix_size * sizeof(double));
+    std::memcpy(A_lower, A, matrix_size * matrix_size * sizeof(data_type));
+    std::memcpy(A_MKL, A, matrix_size * matrix_size * sizeof(data_type));
 
     //splits the input matrix into tiles
     split_into_tiles(A_lower, Asplit, num_tiles, tile_size, matrix_size, layRow);
 
+    // Measure execution time.
+    Timer timer;
     //run the tiled Cholesky function
     tiled_cholesky(Asplit, tile_size, num_tiles, blasLay, lapackLay);
 
     //assembling seperated tiles back into full matrix
     assemble_tiles(Asplit, A_lower, num_tiles, tile_size, matrix_size, layRow);
+    auto time = timer.stop();
+
+    if (args.time) {
+        fmt::print("Duration: {:f} ms\n", time);
+    }
 
     //calling LAPACKE_dpotrf cholesky for verification and timing comparison
     int info = LAPACKE_dpotrf(lapackLay, 'L', matrix_size, A_MKL, matrix_size);
@@ -135,6 +140,13 @@ int main(int argc, char** argv) {
         } else {
             fmt::print("Tiled Cholesky decomposition failed\n");
         }
+        fmt::print("\n");
+    }
+
+    // print lower_matrix if tiled_cholesky sucessfull
+    if (args.lower_matrix) {
+        fmt::print("The lower matrix of input matrix after tiled_cholesky: \n");
+        printLowerResults(A_lower, matrix_size);
     }
 
     //memory free
