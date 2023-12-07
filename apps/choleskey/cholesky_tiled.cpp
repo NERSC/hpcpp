@@ -91,7 +91,7 @@ int main(int argc, char** argv) {
     }
 
     if (matrix_size == 0) {
-        fmt::print(" 0 is an illegal input matrix_size \n");
+        fmt::print("0 is an illegal input matrix_size \n");
         std::exit(0);
     }
 
@@ -137,21 +137,31 @@ int main(int argc, char** argv) {
     //splits the input matrix into tiles
     split_into_tiles(A_cholesky, Asplit, num_tiles, tile_size, matrix_size, layRow);
 
-    // Measure execution time.
+    // Measure execution time of tiled_cholesky
     Timer timer;
     //run the tiled Cholesky function
     tiled_cholesky(Asplit, tile_size, num_tiles, blasLay, lapackLay);
-
-    //assembling seperated tiles back into full matrix
-    assemble_tiles(Asplit, A_cholesky, num_tiles, tile_size, matrix_size, layRow);
     auto time = timer.stop();
 
     if (args.time) {
-        fmt::print("Duration: {:f} ms\n", time);
+        fmt::print("Time for tiled_cholesky decomposition, Duration: {:f} ms\n", time);
     }
 
-    //calling LAPACKE_dpotrf cholesky for verification and timing comparison
+    //assembling seperated tiles back into full matrix
+    assemble_tiles(Asplit, A_cholesky, num_tiles, tile_size, matrix_size, layRow);
+
+    //calling LAPACKE_dpotrf cholesky for verification
+    // Measure execution time of MKL Cholesky decomposition
+    Timer timer2;
     int info = LAPACKE_dpotrf(lapackLay, 'L', matrix_size, A_MKL, matrix_size);
+    auto time2 = timer2.stop();
+    if (args.time) {
+        fmt::print("Time for MKL Cholesky decomposition, Duration: {:f} ms\n", time2);
+    }
+
+    if (info != 0) {
+        fmt::print("Error with dpotrf, info = {}\n", info);
+    }
 
     if (verifycorrectness) {
         bool res = verify_results(A_cholesky, A_MKL, matrix_size * matrix_size);
