@@ -34,13 +34,6 @@
  *  >opensource: https://github.com/intel/hetero-streams/tree/master/ref_code/cholesky
 */
 
-#include <bits/stdc++.h>
-#include <cblas.h>
-#include <lapacke.h>
-#include <omp.h>
-#include <cmath>
-#include <cstring>
-#include "argparse/argparse.hpp"
 #include "matrixutil.hpp"
 
 void tiled_cholesky(data_type* matrix_split[], const std::size_t tile_size, const std::size_t num_tiles,
@@ -164,11 +157,12 @@ int main(int argc, char** argv) {
     }
 
     if (verifycorrectness) {
+        fmt::print("\n");
         bool res = verify_results(A_cholesky, A_MKL, matrix_size * matrix_size);
         if (res) {
-            fmt::print("Tiled Cholesky decomposition successful\n");
+            fmt::print("Tiled Cholesky decomposition successful.\n");
         } else {
-            fmt::print("Tiled Cholesky decomposition failed\n");
+            fmt::print("Tiled Cholesky decomposition failed.\n");
         }
         fmt::print("\n");
     }
