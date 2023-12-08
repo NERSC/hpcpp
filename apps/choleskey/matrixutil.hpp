@@ -1,38 +1,42 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
-
-// generate positive definition matrix
-template <typename T>
-using Matrix = std::vector<std::vector<T>>;
-
-template <typename T>
-std::vector<T> generate_pascal_matrix(const int n) {
-    Matrix<T> matrix(n, std::vector<T>(n, static_cast<T>(0)));
-
-    for (int i = 0; i < n; ++i) {
-        for (int j = 0; j < n; ++j) {
-            if (i == 0 || j == 0) {
-                matrix[i][j] = static_cast<T>(1);
-            } else {
-                matrix[i][j] = matrix[i][j - 1] + matrix[i - 1][j];
-            }
-        }
-    }
-
-    std::vector<T> flattenedVector;
-    for (const auto& row : matrix) {
-        flattenedVector.insert(flattenedVector.end(), row.begin(), row.end());
-    }
-    return std::move(flattenedVector);
-}
+#include "argparse/argparse.hpp"
+#include "commons.hpp"
 
 // parameters define
 struct args_params_t : public argparse::Args {
     bool& results = kwarg("results", "print generated results (default: false)").set_default(true);
-    std::uint64_t& nd = kwarg("nd", "Number of input(positive definition) matrix dimension(<=18)").set_default(10);
-    std::uint64_t& np = kwarg("np", "Number of partitions").set_default(4);
     bool& help = flag("h, help", "print help");
     bool& time = kwarg("t, time", "print time").set_default(true);
+    std::string& input_file = kwarg("input_file", "path to input file").set_default("");
 };
+
+// Function to read data from a text file and store it in a vector
+template <typename T>
+std::vector<T> readDataFromFile(const std::string& filename) {
+    std::vector<T> data;
+
+    // Open the file
+    std::ifstream file(filename);
+
+    // Check if the file is open successfully
+    if (!file.is_open()) {
+        fmt::print("Failed to open the file: {}\n", filename);
+        return data;  // Return an empty vector in case of failure
+    }
+
+    std::string line;
+    while (std::getline(file, line)) {
+        // to parse each line into doubles and store them in the vector
+        T value;
+        std::istringstream iss(line);
+        while (iss >> value) {
+            data.push_back(value);
+        }
+    }
+
+    // Close the file
+    file.close();
+
+    return data;
+}
