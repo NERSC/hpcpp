@@ -64,17 +64,19 @@ build-release-multicore:
   stage: test
   script:
     - cd ${BASE}/hpcpp/build-${BUILD_TYPE}-${STDPAR_TYPE}/apps/1d-stencil
-    - if [ "${STDPAR_TYPE}" = "gpu" ]; then
+    - |
+      if [ "${STDPAR_TYPE}" = "gpu" ]; then
         ./1d-stdexec --sch gpu --size 10 --nt 10
         ./1d-stdpar --size 10 --nt 10
         ./1d-stdexec --sch multigpu --size 10 --nt 10
         ./1d-cuda --size 10 --nt 10
       fi
-    - if [ "${STDPAR_TYPE}" = "multicore" ]; then
+    - |
+      if [ "${STDPAR_TYPE}" = "multicore" ]; then
         ./1d-serial --size 10 --nt 10
         ./1d-omp --size 10 --nt 10
         ./1d-stdpar --size 10 --nt 10
-        ./1d-stdexec --sch cpu --size 10 --nt 10
+        ./1d-stdexec --sch multicore --size 10 --nt 10
       fi
 
 test-debug-gpu:
