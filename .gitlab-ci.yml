@@ -23,29 +23,88 @@ workflow:
       variables:
         install_prefix: ${CI_PROJECT_DIR}/any_branch_install
 
-build:
+.build_template: &build_template
   stage: build
   script:
     - cd ${BASE}
-    - git clone --recursive https://github.com/NERSC/hpcpp.git hpcpp 
+    - git clone --recursive https://github.com/NERSC/hpcpp.git hpcpp
     - cd hpcpp
-    - mkdir -p build && cd build
-    - cmake -DCMAKE_CXX_COMPILER=$(which nvc++) -DCMAKE_C_COMPILER=$(which nvc) -DCMAKE_BUILD_TYPE=Debug -DSTDPAR=gpu -DOMP=gpu ..
+    - mkdir -p build-${BUILD_TYPE}-${STDPAR_TYPE} && cd build-${BUILD_TYPE}-${STDPAR_TYPE}
+    - cmake -DCMAKE_CXX_COMPILER=$(which nvc++) -DCMAKE_C_COMPILER=$(which nvc) -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DSTDPAR=${STDPAR_TYPE} -DOMP=${STDPAR_TYPE} ..
     - make -j${threads}
   artifacts:
     paths:
-      - hpcpp/build/
+      - hpcpp/build-${BUILD_TYPE}-${STDPAR_TYPE}/
 
-test:
+build-debug-gpu:
+  <<: *build_template
+  variables:
+    BUILD_TYPE: Debug
+    STDPAR_TYPE: gpu
+
+build-debug-multicore:
+  <<: *build_template
+  variables:
+    BUILD_TYPE: Debug
+    STDPAR_TYPE: multicore
+
+build-release-gpu:
+  <<: *build_template
+  variables:
+    BUILD_TYPE: Release
+    STDPAR_TYPE: gpu
+
+build-release-multicore:
+  <<: *build_template
+  variables:
+    BUILD_TYPE: Release
+    STDPAR_TYPE: multicore
+
+.test_template: &test_template
   stage: test
-  dependencies:
-    - build
   script:
-    - cd ${BASE}/hpcpp/build/apps/1d-stencil
-    - ./1d-serial --size 10 --nt 10
-    - ./1d-stdpar --size 10 --nt 10
-    - ./1d-omp --size 10 --nt 10
-    - ./1d-stdexec --sch gpu --size 10 --nt 10
-    - ./1d-stdexec --sch multigpu --size 10 --nt 10
-    - ./1d-cuda --size 10 --nt 10
+    - cd ${BASE}/hpcpp/build-${BUILD_TYPE}-${STDPAR_TYPE}/apps/1d-stencil
+    - if [ "${STDPAR_TYPE}" = "gpu" ]; then
+        ./1d-stdexec --sch gpu --size 10 --nt 10
+        ./1d-stdpar --size 10 --nt 10
+        ./1d-stdexec --sch multigpu --size 10 --nt 10
+        ./1d-cuda --size 10 --nt 10
+      fi
+    - if [ "${STDPAR_TYPE}" = "multicore" ]; then
+        ./1d-serial --size 10 --nt 10
+        ./1d-omp --size 10 --nt 10
+        ./1d-stdpar --size 10 --nt 10
+        ./1d-stdexec --sch cpu --size 10 --nt 10
+      fi
 
+test-debug-gpu:
+  <<: *test_template
+  variables:
+    BUILD_TYPE: Debug
+    STDPAR_TYPE: gpu
+  dependencies:
+    - build-debug-gpu
+
+test-debug-multicore:
+  <<: *test_template
+  variables:
+    BUILD_TYPE: Debug
+    STDPAR_TYPE: multicore
+  dependencies:
+    - build-debug-multicore
+
+test-release-gpu:
+  <<: *test_template
+  variables:
+    BUILD_TYPE: Release
+    STDPAR_TYPE: gpu
+  dependencies:
+    - build-release-gpu
+
+test-release-multicore:
+  <<: *test_template
+  variables:
+    BUILD_TYPE: Release
+    STDPAR_TYPE: multicore
+  dependencies:
+    - build-release-multicore
