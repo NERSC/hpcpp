@@ -76,7 +76,7 @@ build-release-multicore:
         ./1d-serial --size 10 --nt 10
         ./1d-omp --size 10 --nt 10
         ./1d-stdpar --size 10 --nt 10
-        ./1d-stdexec --sch multicore --size 10 --nt 10
+        ./1d-stdexec --sch cpu --size 10 --nt 10
       fi
 
 test-debug-gpu:
