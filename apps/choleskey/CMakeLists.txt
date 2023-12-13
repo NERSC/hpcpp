@@ -14,8 +14,18 @@ target_include_directories(
   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
 
-# TODO: remove this example add_executable(choleskey_stdpar_snd
-# choleskey_stdpar_snd.cpp) target_link_libraries(choleskey_stdpar_snd stdexec)
-# target_include_directories( choleskey_stdpar_snd PRIVATE ${CMAKE_BINARY_DIR}
-# ${CMAKE_CURRENT_LIST_DIR}/../../include ${ARGPARSE_INCLUDE_DIR}
-# ${MDSPAN_INCLUDE_DIR})
+# TODO: remove this example
+# add_executable(choleskey_stdpar_snd choleskey_stdpar_snd.cpp)
+# target_link_libraries(choleskey_stdpar_snd stdexec)
+# target_include_directories(
+#   choleskey_stdpar_snd
+#   PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
+#           ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR})
+
+#tiled cholesky omp
+add_executable(cholesky_tiled_omp cholesky_tiled_omp.cpp )
+target_link_libraries(cholesky_tiled_omp PRIVATE hpcpp-core blas lapack -fortranlibs gfortran)
+target_include_directories(
+  cholesky_tiled_omp
+  PRIVATE ${CMAKE_BINARY_DIR} ${CMAKE_CURRENT_LIST_DIR}/../../include
+          ${ARGPARSE_INCLUDE_DIR} ${MDSPAN_INCLUDE_DIR} ${OPENBLAS_DIR}/include/openblas ${OPENBLAS_DIR}/lib64/cmake/OpenBLAS)
