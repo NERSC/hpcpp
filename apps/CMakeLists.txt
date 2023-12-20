@@ -19,14 +19,18 @@ add_subdirectory(heat-equation)
 message(STATUS "Adding mdspan-stdpar...")
 add_subdirectory(mdspan-stdpar)
 
+# ----------------------------------------------------------------------------------------#
+# Add 1d stencil demo
+# ----------------------------------------------------------------------------------------#
+
 message(STATUS "Adding 1d-stencil...")
 add_subdirectory(1d-stencil)
 
 # ----------------------------------------------------------------------------------------#
-# Add choleskey demo
+# Add cholesky demo
 # ----------------------------------------------------------------------------------------#
-message(STATUS "Adding choleskey example...")
-add_subdirectory(choleskey)
+message(STATUS "Adding cholesky example...")
+add_subdirectory(cholesky)
 
 # ----------------------------------------------------------------------------------------#
 # Add fft demo
@@ -35,7 +39,13 @@ message(STATUS "Adding fft...")
 add_subdirectory(fft)
 
 # ----------------------------------------------------------------------------------------#
-# Add block segmented prefixSum
+# Add prefixSum demo
 # ----------------------------------------------------------------------------------------#
 message(STATUS "Adding prefixSum...")
 add_subdirectory(prefixSum)
+
+# ----------------------------------------------------------------------------------------#
+# Add smith-waterman demo
+# ----------------------------------------------------------------------------------------#
+message(STATUS "Adding sw-adept...")
+add_subdirectory(sw-adept)

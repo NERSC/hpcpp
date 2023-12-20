@@ -26,7 +26,7 @@
  * SOFTWARE.
  */
 //
-// This example provides a stdexec(senders/receivers) implementation for choleskey decomposition code.
+// This example provides a stdexec(senders/receivers) implementation for cholesky decomposition code.
 #include <algorithm>
 #include <iostream>
 #include <numeric>

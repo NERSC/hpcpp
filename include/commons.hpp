@@ -41,6 +41,8 @@
 #include <functional>
 #include <iostream>
 #include <iterator>
+#include <fstream>
+#include <sstream>
 #include <map>
 #include <memory>
 #include <numeric>

@@ -1,8 +1,8 @@
 /*
  * MIT License
  *
- * Copyright (c) 2023 Chuanqiu He 
- * Copyright (c) 2023 Weile Wei 
+ * Copyright (c) 2023 Chuanqiu He
+ * Copyright (c) 2023 Weile Wei
  * Copyright (c) 2023 The Regents of the University of California,
  * through Lawrence Berkeley National Laboratory (subject to receipt of any
  * required approvals from the U.S. Dept. of Energy).All rights reserved.
@@ -26,12 +26,9 @@
  * SOFTWARE.
  */
 //
-// This example provides a stdpar implementation for choleskey decomposition code.
+// This example provides a serial(mdspan) implementation for cholesky decomposition code.
 
-#include <algorithm>
-#include <execution>
-#include <iostream>
-#include <numeric>
+#include <bits/stdc++.h>
 #include <vector>
 #include "argparse/argparse.hpp"
 #include "commons.hpp"
@@ -43,38 +40,34 @@ struct solver {
 
     using view_2d = std::extents<int, std::dynamic_extent, std::dynamic_extent>;
 
+    typedef std::mdspan<int, view_2d, std::layout_right> matrix_ms_t;
+
     template <typename T>
-    std::vector<std::vector<T>> Cholesky_Decomposition(std::vector<T>& vec, int n) {
-        std::vector<std::vector<T>> lower(n, std::vector<T>(n, 0));
+    matrix_ms_t Cholesky_Decomposition(std::vector<T>& vec, int n) {
+        std::vector<T> lower(n * n, 0);
 
         auto matrix_ms = std::mdspan<T, view_2d, std::layout_right>(vec.data(), n, n);
-
-        auto multiplier_lambda = [=](auto a, auto b) {
-            return a * b;
-        };
+        auto lower_ms = std::mdspan<T, view_2d, std::layout_right>(lower.data(), n, n);
 
         // Decomposing a matrix into Lower Triangular
         for (int i = 0; i < matrix_ms.extent(0); i++) {
             for (int j = 0; j <= i; j++) {
                 T sum = 0;
 
-                if (j == i)  // summation for diagonals
-                {
-                    sum = std::transform_reduce(std::execution::par, lower[j].cbegin(), lower[j].cbegin() + j, 0,
-                                                std::plus{}, [=](int val) { return val * val; });
-
-                    lower[j][j] = std::sqrt(matrix_ms(i, j) - sum);
-
-                } else {  // Evaluating L(i, j) using L(j, j)
-
-                    sum = std::transform_reduce(std::execution::par, lower[j].cbegin(), lower[j].cbegin() + j,
-                                                lower[i].cbegin(), 0, std::plus<>(), multiplier_lambda);
-
-                    lower[i][j] = (matrix_ms(i, j) - sum) / lower[j][j];
+                if (j == i) {
+                    // summation for diagonals
+                    for (int k = 0; k < j; k++)
+                        sum += pow(lower_ms(j, k), 2);
+                    lower_ms(j, j) = sqrt(matrix_ms(i, j) - sum);
+                } else {
+                    // Evaluating L(i, j) using L(j, j)
+                    for (int k = 0; k < j; k++)
+                        sum += (lower_ms(i, k) * lower_ms(j, k));
+                    lower_ms(i, j) = (matrix_ms(i, j) - sum) / lower_ms(j, j);
                 }
             }
         }
-        return lower;
+        return lower_ms;
     }
 };
 
@@ -85,11 +78,10 @@ int benchmark(args_params_t const& args) {
 
     std::vector<int> inputMatrix = generate_pascal_matrix<int>(nd);
 
-    // Create the solver object
+    // Create the solverobject
     solver solve;
     // Measure execution time.
     Timer timer;
-
     // start decomposation
     auto res_matrix = solve.Cholesky_Decomposition(inputMatrix, nd);
     auto time = timer.stop();
@@ -101,12 +93,12 @@ int benchmark(args_params_t const& args) {
         for (int i = 0; i < nd; i++) {
             // Lower Triangular
             for (int j = 0; j < nd; j++)
-                fmt::print("{:>6}\t", res_matrix[i][j]);
+                fmt::print("{:>6}\t", res_matrix(i, j));
             fmt::print("\t");
 
             // Transpose of Lower Triangular
             for (int j = 0; j < nd; j++)
-                fmt::print("{:>6}\t", res_matrix[j][i]);
+                fmt::print("{:>6}\t", res_matrix(j, i));
             fmt::print("\n");
         }
     }
