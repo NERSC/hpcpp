@@ -28,34 +28,52 @@
  * commons for the smith waterman codes
  */
 #define SW_STDEXEC
-#include "sw-adept.hpp"
+#include "adept.hpp"
 
 using namespace sw;
+using algn_t = sw::alignments;
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 //
-// getSizes
+// binary Search kernel
 //
-[[nodiscard]] short* getSizes(scheduler auto &&sch, const std::vector<string_t> &database,
-                              const std::vector<string_t> &queries)
+int binarySearch(int *thread_map, int k, int N)
 {
-    // N = size
-    int N = database.size();
+    int cell = 0;
+    int left = 0;
+    int right = N;
 
-    // allocate array
-    short *y = new short[N+1];
+    for (;;)
+    {
+        int mid = left + (right - left) / 2;
 
-   // number of iterations
+        if (thread_map[mid] <= k)
+        {
+            if (thread_map[mid+1] > k)
+            {
+                cell = mid;
+                break;
+            }
+            else
+                left = mid+1;
+        }
+        else
+            right = mid;
+    }
+
+    return cell;
+}
+
+// ------------------------------------------------------------------------------------------------------------------------- //
+//
+// prefixSum kernel
+//
+template <typename T>
+void prefixSum(scheduler auto &&sch, T *y, const int N)
+{
+    // number of iterations
     int niters = ilog2(N);
 
-    // get pointers
-    auto db = database.data();
-    auto q = queries.data();
-
-    // write the minimum lengths of sequence from database and queries to y
-    ex::sync_wait(ex::schedule(sch) | ex::bulk(N, [=](int k) { y[k] = std::min(db[k].length(), q[k].length()); }));
-
-    // ---------------------------------------------------------------------------------------- //
     // GE Blelloch (1990) algorithm
     // upsweep
     for (int d = 0; d < niters; d++) {
@@ -82,7 +100,6 @@ using namespace sw;
                       y[N - 1] = 0;
                   }));
 
-    // ---------------------------------------------------------------------------------------- //
     // downsweep
     for (int d = niters - 1; d >= 0; d--) {
         int bsize = N / (1 << d + 1);
@@ -103,21 +120,93 @@ using namespace sw;
         // wait for downsweep
         ex::sync_wait(dSweep);
     }
-
-    // return y
-    return y;
 }
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 //
-// dna aligner kernel
+// buildThreadMap
 //
-// [[nodiscard]] dna_align();
+void buildThreadMap(scheduler auto sch, std::vector<string_t> &database,
+                                std::vector<string_t> &queries, int *y, const int N)
+{
+    // allocate vector
+    if (!y)
+        y = new int[N+1];
+
+    // get pointers
+    auto db = database.data();
+    auto q = queries.data();
+
+    // write the minimum lengths of sequence from database and queries to y
+    ex::sync_wait(ex::schedule(sch) | ex::bulk(N,
+        [=](int k) { y[k] = std::min(db[k].length(), q[k].length()); }));
+
+    // compute prefixSum
+    prefixSum(sch, y, N);
+
+}
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 //
-// aa aligner kernel
+// aligner kernel
 //
+void aligner(scheduler auto &&sch, std::vector<string_t> &database, std::vector<string_t> &queries, adept &driver)
+{
+    // database size
+    const int N = database.size();
+
+    // ---------------------------------------------------------------------------------------- //
+    //
+    // setup matrices
+    //
+    // scoring matrix
+    std::vector<short> scores_vec(aa::blosum62size);
+    (driver.getSeqType() == seq_type_t::aa)? scores_vec.assign(aa::blosum62, aa::blosum62 + aa::blosum62size) : scores_vec.assign({MATCH, MISMATCH});
+
+    // gaps matrix
+    std::vector<short> gaps_vec{GAP_OPEN, GAP_EXTEND};
+
+    // encoding matrix
+    std::vector<short> encode_vec(sw::encoding, sw::encoding + encode_mat_size);
+
+    // get pointers to heap mem
+    auto scores = scores_vec.data();
+    auto gaps = gaps_vec.data();
+    auto encode = encode_vec.data();
+
+    // build the thread map
+    int *thread_map = nullptr;
+    buildThreadMap(sch, database, queries, thread_map, N);
+
+    // ---------------------------------------------------------------------------------------- //
+    //
+    // dna alignment kernel
+    //
+    auto dna_kernel = [=](int k) {
+
+        // get alignment number
+        auto bin = binarySearch(thread_map, k, thread_map[N]);
+
+    };
+
+    // ---------------------------------------------------------------------------------------- //
+    //
+    // aa alignment kernel
+    //
+    auto aa_kernel = [=](int k){ auto bin = binarySearch(thread_map, k, thread_map[N]); };
+
+    // ---------------------------------------------------------------------------------------- //
+    //
+    // launch kernel
+    //
+    // number of threads -> last element of thread_map
+    int nthreads = thread_map[N];
+
+    // launch the appropriate kernel
+    (driver.getSeqType() == seq_type_t::aa) ? ex::sync_wait(ex::schedule(sch) | ex::bulk(nthreads, aa_kernel)) :
+                                              ex::sync_wait(ex::schedule(sch) | ex::bulk(nthreads, dna_kernel));
+
+}
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 //
@@ -138,22 +227,22 @@ int main(int argc, char* argv[]) {
 
     sch_t scheduler = get_sch_enum(sched);
 
-    if (scheduler == (sch_t)(-1))
-        throw std::runtime_error("Run: `sw-adept-stdexec --help` to see the list of available schedulers");
+    // ---------------------------------------------------------------------------------------- //
+    //
+    // initialize scores, gaps and other properties
+    //
+    auto driver = sw::adept(seq, cigar);
 
     // ---------------------------------------------------------------------------------------- //
     //
     // parse input files and construct data structures
     //
-
+    // database matrices
     std::vector<string_t> database;
     std::vector<string_t> queries;
 
-    // get max_query_length
-    const auto max_query_len = (seq == seq_type_t::aa)? aa::MAX_QUERY_LEN : dna::MAX_QUERY_LEN;
-
     try {
-        readFASTAs(dbFile, qFile, database, queries, max_query_len);
+        driver.readFASTAs(dbFile, qFile, database, queries);
     }
     catch (const std::invalid_argument& e) {
         std::cerr << e.what() << std::endl;
@@ -162,54 +251,36 @@ int main(int argc, char* argv[]) {
 
     // ---------------------------------------------------------------------------------------- //
     //
-    // get thread map
+    // launch the smith waterman kernel
     //
-
-    short *tmap = nullptr;
-
-    // launch with appropriate stdexec scheduler
     switch (scheduler) {
         case sch_t::CPU:
-            tmap = getSizes(exec::static_thread_pool(nthreads).get_scheduler(), database, queries);
+            aligner(exec::static_thread_pool(nthreads).get_scheduler(), database, queries, driver);
             break;
-#if defined(USE_GPU)
+    #if defined(USE_GPU)
         case sch_t::GPU:
-            tmap = getSizes(nvexec::stream_context().get_scheduler(), database, queries);
+            aligner(nvexec::stream_context().get_scheduler(), database, queries, driver);
             break;
         case sch_t::MULTIGPU:
-            tmap = getSizes(nvexec::multi_gpu_stream_context().get_scheduler(), database, queries);
+            aligner(nvexec::multi_gpu_stream_context().get_scheduler(), database, queries, driver);
             break;
-#endif  // USE_GPU
+    #endif  // USE_GPU
         default:
-            (void)(tmap);
+            (void)(scheduler);
     }
 
-
     // ---------------------------------------------------------------------------------------- //
     //
-    // initialize scores, gaps and other properties
-    //
-
-    // scoring matrix
-    std::vector<short> scores(aa::blosum62size);
-
-    // assign blosum62 matrix to scores if amino acids
-    if (seq == seq_type_t::aa)
-        scores.assign(aa::blosum62, aa::blosum62 + aa::blosum62size);
-    else
-        scores.assign({MATCH, MISMATCH});
-
-    // gaps matrix
-    std::vector<short> gaps{GAP_OPEN, GAP_EXTEND};
-
-    // ---------------------------------------------------------------------------------------- //
-    //
-    // launch the smith waterman kernel
-    //
-
-    // launch the smith waterman kernel
-
     // validate the output
+    //
+    if (args.validate.has_value())
+    {
+        if (!driver.validate(validFile))
+        {
+            fmt::print("STATUS: Validation failed.\n");
+        }
+    }
+
 
     // return status
     return 0;

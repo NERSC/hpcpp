@@ -100,6 +100,9 @@ constexpr short MISMATCH       = -3;
 constexpr short GAP_OPEN       = -6;
 constexpr short GAP_EXTEND     = -1;
 
+// max batch size
+constexpr int MAX_BATCH_SIZE   = 50000;
+
 // ------------------------------------------------------------------------------------------------------------------------- //
 
 // map for sequence type
@@ -110,69 +113,23 @@ std::map<string_t, seq_type_t> seqmap{{"dna", seq_type_t::dna}, {"aa", seq_type_
     if (seqmap.contains(seq))
         return seqmap[seq];
     else
-        return (seq_type_t)(-1);
+    throw std::invalid_argument("FATAL: " + std::string(seq) +
+                                " is not a valid sequence type.\n"
+                                "Available sequences: [dna, aa]");
 }
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 
-// read and process FASTA files
-void readFASTAs(const string_t &dbFile, const string_t &qFile,
-                 std::vector<string_t> &database, std::vector<string_t> &queries,
-                 const int max_query_len)
-{
-    bool status = true;
+// encoding matrix used for both sequences
+constexpr short encoding[] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                           0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                           0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                           23,0,0,0,0,0,0,0,0,0,0,0,0,0,
+                           0,0,0,0,0,0,0,0,0,0,20,4,3,6,
+                           13,7,8,9,0,11,10,12,2,0,14,5,
+                           1,15,16,0,19,17,22,18,21};
 
-    // print status for the user here
-    std::cout << "\nReading..\ndatabase file: " << dbFile << "\nqueries file: " << qFile << std::endl;
-
-    string_t lineR, lineQ;
-
-    std::ifstream ref_file(dbFile);
-    std::ifstream quer_file(qFile);
-
-    // extract reference sequences
-    if(ref_file.is_open() && quer_file.is_open())
-    {
-        int lineNum = 0;
-
-        // get two lines
-        while(getline(ref_file, lineR) && getline(quer_file, lineQ))
-        {
-            lineNum++;
-
-            if(lineR[0] == '>')
-            {
-                if (lineQ[0] == '>')
-                    continue;
-                else
-                {
-                    std::cout << "readFASTAs: mismatch at line: " << lineNum << std::endl;
-                    status = false;
-                    break;
-                }
-            }
-            else if (lineR.length() <= MAX_REF_LEN && lineQ.length() <= max_query_len)
-            {
-                database.push_back(lineR);
-                queries.push_back(lineQ);
-            }
-            else
-                continue;
-
-            if (database.size() == DATA_SIZE)
-                break;
-        }
-
-        // close the files
-        ref_file.close();
-        quer_file.close();
-    }
-
-    if (!status)
-        throw std::invalid_argument("FATAL: Invalid database or query files provided.\n");
-
-    return;
-}
+constexpr int encode_mat_size = sizeof(encoding)/sizeof(encoding[0]);
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 
