@@ -116,45 +116,51 @@ private:
     // set batch size
     void setupArrays(seq_v &_db, seq_v& _q)
     {
+        // initialize arithmetic variables
         N = _db.size();
         batch_size = std::min(N, MAX_BATCH_SIZE);
         nbatches   = N / batch_size;
         nbatches  += (N % batch_size)? 1 : 0;
 
+        // initialize alignments arrays
         algn = alignments(N);
 
-        if (!this->len_db)
-            this->len_db = new int[N+1];
-        if (!this->len_queries)
-            this->len_queries = new int[N+1];
+        // arrays to store prefix sum of sequence lengths
+        this->len_db = new int[N+1];
+        this->len_queries = new int[N+1];
 
+        // extract sequence lengths
         for (int k = 0; k < N; k++)
         {
             this->len_db[k] = _db[k].length();
             this->len_queries[k] = _q[k].length();
         }
 
-        // flatten database strings
+        // write zero at the last index
+        this->len_db[N] = 0;
+        this->len_queries[N] = 0;
+
+        // flatten database sequences
         auto flattened_str = std::accumulate(_db.begin(), _db.end(), std::string(""));
 
-        if (!this->database)
-            this->database = new char[flattened_str.length()];
-
-        // copy to driver.database
+        // array to write flattened database sequences
+        this->database = new char[flattened_str.length()];
         std::memcpy(this->database, flattened_str.c_str(), flattened_str.length());
 
+        // flatten query sequences
         flattened_str = std::accumulate(_q.begin(), _q.end(), std::string(""));
 
-        if (!this->queries)
-            this->queries = new char[flattened_str.length()];
-
-        // copy to driver.queries
+        // array to write flattened query sequences
+        this->queries = new char[flattened_str.length()];
         std::memcpy(this->queries, flattened_str.c_str(), flattened_str.length());
 
+        // [optional, destroyed anyway] clear the flattened string
         flattened_str.clear();
     }
 
 public:
+
+    // ------------------------------------------------------------------------------------------------------------------------- //
 
     char *database;
     char *queries;
