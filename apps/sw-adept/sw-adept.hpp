@@ -133,6 +133,20 @@ constexpr int encode_mat_size = sizeof(encoding)/sizeof(encoding[0]);
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 
+// variable args template max helper function
+
+// base case
+auto max(auto v) { return v; }
+
+// generic case
+auto max(auto v1, auto v2, auto... v3toN)
+{
+    auto ans = std::max(v1,v2);
+    return max(ans, v3toN...);
+}
+
+// ------------------------------------------------------------------------------------------------------------------------- //
+
 // dna sequence specifics
 namespace dna {
     // max dna query sequence length

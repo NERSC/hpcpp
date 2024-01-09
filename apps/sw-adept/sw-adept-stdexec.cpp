@@ -66,10 +66,10 @@ int binarySearch(int *thread_map, int k, int N)
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 //
-// prefixSum kernel
+// inclusive scan kernel
 //
 template <typename T>
-void prefixSum(scheduler auto &&sch, T *y, const int N)
+void inclusiveScan(scheduler auto &&sch, T *y, const int N)
 {
     // number of iterations
     int niters = ilog2(N);
@@ -124,26 +124,34 @@ void prefixSum(scheduler auto &&sch, T *y, const int N)
 
 // ------------------------------------------------------------------------------------------------------------------------- //
 //
-// buildThreadMap
+// build thread map and setup prefixes
 //
-void buildThreadMap(scheduler auto sch, std::vector<string_t> &database,
-                                std::vector<string_t> &queries, int *y, const int N)
+int *setupDatabaseAndQueries(scheduler auto sch, std::vector<string_t> &database,
+                                std::vector<string_t> &queries, adept &driver)
 {
-    // allocate vector
-    if (!y)
-        y = new int[N+1];
+    const int N = database.size();
+
+    // database and query lengths
+    auto db_l = driver.len_db;
+    auto q_l = driver.len_queries;
+
+    // allocate memory for thread map
+    int *tmap = new int[N+1];
 
     // get pointers
     auto db = database.data();
     auto q = queries.data();
 
-    // write the minimum lengths of sequence from database and queries to y
+    // write the minimum database and queries sequence lengths to y
     ex::sync_wait(ex::schedule(sch) | ex::bulk(N,
-        [=](int k) { y[k] = std::min(db[k].length(), q[k].length()); }));
+        [=](int k) { tmap[k] = std::min(db_l[k], q_l[k]); }));
 
-    // compute prefixSum
-    prefixSum(sch, y, N);
+    // inclusive scan on threadmap, db_l and q_l
+    inclusiveScan(sch, tmap, N);
+    inclusiveScan(sch, db_l, N);
+    inclusiveScan(sch, q_l, N);
 
+    return tmap;
 }
 
 // ------------------------------------------------------------------------------------------------------------------------- //
@@ -155,6 +163,9 @@ void aligner(scheduler auto &&sch, std::vector<string_t> &database, std::vector<
     // database size
     const int N = database.size();
 
+    // reverse search
+    bool reverse = false;
+
     // ---------------------------------------------------------------------------------------- //
     //
     // setup matrices
@@ -162,21 +173,31 @@ void aligner(scheduler auto &&sch, std::vector<string_t> &database, std::vector<
     // scoring matrix
     std::vector<short> scores_vec(aa::blosum62size);
     (driver.getSeqType() == seq_type_t::aa)? scores_vec.assign(aa::blosum62, aa::blosum62 + aa::blosum62size) : scores_vec.assign({MATCH, MISMATCH});
-
     // gaps matrix
     std::vector<short> gaps_vec{GAP_OPEN, GAP_EXTEND};
-
     // encoding matrix
     std::vector<short> encode_vec(sw::encoding, sw::encoding + encode_mat_size);
 
+    // ---------------------------------------------------------------------------------------- //
+    //
+    // build the thread map and setup dynamic memories
+    //
+    int *thread_map =  setupDatabaseAndQueries(sch, database, queries, driver);
+
+    // ---------------------------------------------------------------------------------------- //
+    //
     // get pointers to heap mem
+    //
     auto scores = scores_vec.data();
     auto gaps = gaps_vec.data();
     auto encode = encode_vec.data();
 
-    // build the thread map
-    int *thread_map = nullptr;
-    buildThreadMap(sch, database, queries, thread_map, N);
+    // extract pointers from driver
+    auto seqDB = driver.database;
+    auto seqQ = driver.queries;
+
+    auto lenDB = driver.len_db;
+    auto lenQ = driver.len_queries;
 
     // ---------------------------------------------------------------------------------------- //
     //
@@ -184,8 +205,57 @@ void aligner(scheduler auto &&sch, std::vector<string_t> &database, std::vector<
     //
     auto dna_kernel = [=](int k) {
 
-        // get alignment number
+        // get alignment number via binary search
         auto bin = binarySearch(thread_map, k, thread_map[N]);
+
+        //
+        // setup basic pointers
+        //
+
+        // get the current database and query sequences
+        char *seqA = seqDB + lenDB[bin];
+        int lenA = lenDB[bin+1] - lenDB[bin];
+        char *seqB = seqQ + lenQ[bin];
+        int lenB = lenQ[bin+1] - lenQ[bin];
+
+        //
+        // setup thread offset, longer_seq, and myColumnChar
+        //
+
+        // thread offset
+        int thread_offset = k;
+        thread_offset -= (lenA < lenB)? lenDB[bin] : lenQ[bin];
+
+        // longer sequence
+        char* longer_seq = (lenA < lenB)? seqB : seqA;
+
+        // max and min lengths
+        unsigned maxSize = max(lenA, lenB);
+        unsigned minSize = min(lenA, lenB);
+
+        //
+        // move my char to register (local variable)
+        //
+        char myColumnChar;
+
+        if(lenA < lenB)
+            myColumnChar = (reverse)? seqA[(lenA - 1) - thread_offset] : seqA[thread_offset];
+        else
+            myColumnChar = (reverse)? seqB[(lenB - 1) - thread_offset] : seqB[thread_offset];
+
+        /*
+        int   i            = 1;
+        short thread_max   = 0; // to maintain the thread max score
+        short thread_max_i = 0; // to maintain the DP coordinate i for the longer string
+        short thread_max_j = 0;// to maintain the DP cooirdinate j for the shorter string
+
+        //initializing registers for storing diagonal values for three recent most diagonals (separate tables for
+        //H, E and F)
+        short _curr_H = 0, _curr_F = 0, _curr_E = 0;
+        short _prev_H = 0, _prev_F = 0, _prev_E = 0;
+        short _prev_prev_H = 0, _prev_prev_F = 0, _prev_prev_E = 0;
+        short _temp_Val = 0;
+        */
 
     };
 
@@ -202,7 +272,12 @@ void aligner(scheduler auto &&sch, std::vector<string_t> &database, std::vector<
     // number of threads -> last element of thread_map
     int nthreads = thread_map[N];
 
-    // launch the appropriate kernel
+    // launch the appropriate kernel (forward mode)
+    (driver.getSeqType() == seq_type_t::aa) ? ex::sync_wait(ex::schedule(sch) |ex::bulk(nthreads, aa_kernel)) :
+                                              ex::sync_wait(ex::schedule(sch) |  ex::bulk(nthreads, dna_kernel));
+
+    reverse = true;
+    // launch the appropriate kernel (reverse mode)
     (driver.getSeqType() == seq_type_t::aa) ? ex::sync_wait(ex::schedule(sch) | ex::bulk(nthreads, aa_kernel)) :
                                               ex::sync_wait(ex::schedule(sch) | ex::bulk(nthreads, dna_kernel));
 

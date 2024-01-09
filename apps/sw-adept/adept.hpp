@@ -96,6 +96,8 @@ class adept
 {
 private:
 
+    using seq_v = std::vector<string_t>;
+
     // maximum query length
     int max_query_len;
 
@@ -112,17 +114,52 @@ private:
     algn_t *algn;
 
     // set batch size
-    void setupArrays(int _N)
+    void setupArrays(seq_v &_db, seq_v& _q)
     {
-        N = _N;
+        N = _db.size();
         batch_size = std::min(N, MAX_BATCH_SIZE);
         nbatches   = N / batch_size;
         nbatches  += (N % batch_size)? 1 : 0;
 
         algn = alignments(N);
+
+        if (!this->len_db)
+            this->len_db = new int[N+1];
+        if (!this->len_queries)
+            this->len_queries = new int[N+1];
+
+        for (int k = 0; k < N; k++)
+        {
+            this->len_db[k] = _db[k].length();
+            this->len_queries[k] = _q[k].length();
+        }
+
+        // flatten database strings
+        auto flattened_str = std::accumulate(_db.begin(), _db.end(), std::string(""));
+
+        if (!this->database)
+            this->database = new char[flattened_str.length()];
+
+        // copy to driver.database
+        std::memcpy(this->database, flattened_str.c_str(), flattened_str.length());
+
+        flattened_str = std::accumulate(_q.begin(), _q.end(), std::string(""));
+
+        if (!this->queries)
+            this->queries = new char[flattened_str.length()];
+
+        // copy to driver.queries
+        std::memcpy(this->queries, flattened_str.c_str(), flattened_str.length());
+
+        flattened_str.clear();
     }
 
 public:
+
+    char *database;
+    char *queries;
+    int *len_db;
+    int *len_queries;
 
     // ------------------------------------------------------------------------------------------------------------------------- //
     adept(seq_type_t _seq, bool _cigar) : cigar(_cigar), seq(_seq)
@@ -137,12 +174,20 @@ public:
     {
         if (algn)
             delete algn;
+        if (database)
+            delete[] database;
+        if (queries)
+            delete[] queries;
+        if (len_db)
+            delete[] len_db;
+        if (len_queries)
+            delete[] len_queries;
     };
 
     // ------------------------------------------------------------------------------------------------------------------------- //
 
     // read and process FASTA files
-    int readFASTAs(const string_t &dbFile, const string_t &qFile, std::vector<string_t> &database, std::vector<string_t> &queries)
+    int readFASTAs(const string_t &dbFile, const string_t &qFile, std::vector<string_t> &_db, std::vector<string_t> &_q)
     {
         bool status = true;
 
@@ -177,13 +222,13 @@ public:
                 }
                 else if (lineR.length() <= MAX_REF_LEN && lineQ.length() <= max_query_len)
                 {
-                    database.push_back(lineR);
-                    queries.push_back(lineQ);
+                    _db.push_back(lineR);
+                    _q.push_back(lineQ);
                 }
                 else
                     continue;
 
-                if (N == DATA_SIZE)
+                if (_db.size() == DATA_SIZE)
                     break;
             }
 
@@ -196,7 +241,7 @@ public:
             throw std::invalid_argument("FATAL: Invalid database or query files provided.\n");
 
         // successfully read, set batch size
-        this->setupArrays(N);
+        this->setupArrays(_db, _q);
 
         return N;
     }
