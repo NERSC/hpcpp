@@ -96,7 +96,7 @@ class adept
 {
 private:
 
-    using seq_v = std::vector<string_t>;
+    using vec_str_t = std::vector<string_t>;
 
     // maximum query length
     int max_query_len;
@@ -114,7 +114,7 @@ private:
     algn_t *algn;
 
     // set batch size
-    void setupArrays(seq_v &_db, seq_v& _q)
+    void setupArrays(vec_str_t &_db, vec_str_t &_q)
     {
         // initialize arithmetic variables
         N = _db.size();
@@ -193,7 +193,7 @@ public:
     // ------------------------------------------------------------------------------------------------------------------------- //
 
     // read and process FASTA files
-    int readFASTAs(const string_t &dbFile, const string_t &qFile, std::vector<string_t> &_db, std::vector<string_t> &_q)
+    int readFASTAs(const string_t &dbFile, const string_t &qFile, vec_str_t &_db, vec_str_t &_q)
     {
         bool status = true;
 
